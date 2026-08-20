@@ -75,3 +75,11 @@ actions:
   integration handles household cars only.
 - Push routing to a second (non-phone) token can vary by site; the poll engine
   covers you regardless.
+
+## Icon
+
+The app's mark is in `brands/happyparking/` (`icon.png` 256², `icon@2x.png` 512²).
+For it to render in Home Assistant it must be added to the
+[home-assistant/brands](https://github.com/home-assistant/brands) repository
+under `custom_integrations/happyparking/`; that submission is separate from this
+repo.
