@@ -24,7 +24,7 @@
         "data": {
           "base_url": "Parking server base URL",
           "user_id": "App user ID",
-          "site_code": "Site code (blank = derive from URL)"
+          "site_code": "Site code (from the app; leave blank if unknown)"
         }
       },
       "other": {

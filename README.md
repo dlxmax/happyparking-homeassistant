@@ -51,7 +51,8 @@ to the app:
 
 Either login gives back a signed token that already contains your building's
 parking server address, your app user id and your site code, so those are filled
-in for you.
+in for you. The site code is its own identifier — it is not the server's
+subdomain — so it is only ever read from the login, never guessed.
 
 Afterwards, **Configure** on the integration exposes:
 

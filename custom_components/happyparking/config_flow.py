@@ -30,7 +30,7 @@ from .const import (
 from .discovery import (
     DiscoveryError,
     config_from_token,
-    derive_site_code,
+    server_host,
     kakao_authorize_url,
     parse_login_result,
     token_for_kakao_id,
@@ -129,12 +129,11 @@ class HappyParkingConfigFlow(ConfigFlow, domain=DOMAIN):
             if not base.startswith(("http://", "https://")):
                 errors[CONF_BASE_URL] = "invalid_url"
             else:
-                site = str(user_input.get(CONF_SITE_CODE) or "").strip()
                 return await self._create(
                     {
                         CONF_BASE_URL: base,
                         CONF_USER_ID: int(user_input[CONF_USER_ID]),
-                        CONF_SITE_CODE: site or derive_site_code(base),
+                        CONF_SITE_CODE: str(user_input.get(CONF_SITE_CODE) or "").strip(),
                     }
                 )
 
@@ -152,11 +151,10 @@ class HappyParkingConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _create(self, data: dict[str, Any]) -> ConfigFlowResult:
         """Store a discovered configuration as a config entry."""
-        await self.async_set_unique_id(f"{data[CONF_SITE_CODE]}-{data[CONF_USER_ID]}")
+        label = data[CONF_SITE_CODE] or server_host(data[CONF_BASE_URL])
+        await self.async_set_unique_id(f"{label}-{data[CONF_USER_ID]}")
         self._abort_if_unique_id_configured()
-        return self.async_create_entry(
-            title=f"HappyParking ({data[CONF_SITE_CODE]})", data=data
-        )
+        return self.async_create_entry(title=f"HappyParking ({label})", data=data)
 
     @staticmethod
     @callback

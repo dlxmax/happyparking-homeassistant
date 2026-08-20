@@ -85,10 +85,9 @@ def process_local_server_address(encoded: str) -> str:
     return address.rstrip("/")
 
 
-def derive_site_code(base_url: str) -> str:
-    """The parking server subdomain is the site identifier."""
-    host = base_url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
-    return host.split(".", 1)[0]
+def server_host(base_url: str) -> str:
+    """The host part of a parking server URL."""
+    return base_url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
 
 
 def parse_login_result(raw: str) -> tuple[str | None, str | None]:
@@ -183,9 +182,9 @@ def config_from_token(token: str) -> dict[str, Any]:
     if not address:
         raise DiscoveryError("no_server")
     base_url = process_local_server_address(str(address))
-    site_code = str(
-        payload.get("siteCode") or payload.get("site_code") or derive_site_code(base_url)
-    )
+    # The site code is its own identifier and is not the server's subdomain,
+    # so it is only ever taken from the login - never guessed from the URL.
+    site_code = str(payload.get("siteCode") or payload.get("site_code") or "")
     return {
         CONF_BASE_URL: base_url,
         CONF_USER_ID: int(user_id),

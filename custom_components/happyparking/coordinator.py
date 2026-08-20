@@ -25,7 +25,6 @@ from .const import (
     FIREBASE,
     LOGGER,
 )
-from .discovery import derive_site_code
 
 
 class HappyParkingCoordinator:
@@ -38,7 +37,7 @@ class HappyParkingCoordinator:
         data = {**entry.data, **entry.options}
         self.base = str(data[CONF_BASE_URL]).rstrip("/")
         self.user_id = int(data[CONF_USER_ID])
-        self.site_code = str(data.get(CONF_SITE_CODE) or "").strip() or derive_site_code(self.base)
+        self.site_code = str(data.get(CONF_SITE_CODE) or "").strip()
         self.device_id = str(data.get(CONF_DEVICE_ID) or DEFAULT_DEVICE_ID)
         self.verify_ssl = bool(data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL))
         self.scan_interval = int(data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
