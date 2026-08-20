@@ -29,8 +29,20 @@ DEFAULT_DEVICE_ID = "hass-happyparking"
 DEFAULT_SCAN_INTERVAL = 120  # seconds; poll fallback. 0 = push-only.
 DEFAULT_VERIFY_SSL = True
 
-# Event fired on the HA bus for each car in/out (in addition to the event entity)
+# Events fired on the HA bus (in addition to the event entity)
 EVENT_CAR = "happyparking_car"
+# Every raw push the parking server sends us, so push delivery is observable
+# even when the log is not reachable.
+EVENT_PUSH = "happyparking_push"
+
+# The visit list is ordered by ENTRY time, and an exit is written back onto the
+# original row. A car parked while the other comes and goes sinks down the list,
+# so a sweep keeps paging until every visit still awaiting an exit is accounted
+# for, rather than trusting the first page.
+POLL_PAGE_SIZE = 20
+MAX_POLL_PAGES = 10
+
+SERVICE_TEST_PUSH = "test_push"
 
 EVENT_TYPES = ["entered", "exited"]
 

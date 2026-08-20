@@ -61,5 +61,17 @@
         }
       }
     }
+  },
+  "services": {
+    "test_push": {
+      "name": "푸시 테스트",
+      "description": "주차 서버가 홈어시스턴트의 푸시 토큰으로 알림을 보내도록 요청합니다. happyparking_push 이벤트가 발생하면 푸시가 정상 동작하는 것입니다.",
+      "fields": {
+        "message": {
+          "name": "메시지",
+          "description": "테스트 알림에 포함할 문구입니다."
+        }
+      }
+    }
   }
 }

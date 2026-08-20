@@ -1,0 +1,14 @@
+test_push:
+  name: Test push
+  description: >-
+    Ask the parking server to send a push notification to Home Assistant's own
+    token. A happyparking_push event on the bus means push delivery works.
+  fields:
+    message:
+      name: Message
+      description: Text to include in the test notification.
+      required: false
+      default: Home Assistant
+      example: Home Assistant
+      selector:
+        text:

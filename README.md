@@ -19,11 +19,21 @@ Two engines, de-duplicated (no double alerts):
    directly. A reliable safety net; set the interval to `0` to go push-only once
    you've confirmed push delivery.
 
+The visit list is ordered by *entry* time and an exit is written back onto the
+original row, so a car left parked while another comes and goes sinks down the
+list. Each sweep therefore keeps paging until every visit still awaiting an exit
+has been seen, rather than trusting the first page.
+
 Each car event is exposed two ways:
 
 - an **event entity** (`event.happyparking_car_in_out`) that fires `entered` /
   `exited` with the car record as attributes, and
 - a **bus event** `happyparking_car` for classic automations.
+
+Both carry a `source` of `push` or `poll`, so you can see which engine delivered
+any given event. `exit_gate` and `exit_time` are `null` until the car actually
+leaves — the server seeds the exit time with the entry time, so it cannot be
+trusted on its own.
 
 ## Install (HACS)
 
@@ -86,6 +96,18 @@ actions:
               if trigger.event.data.state == 'entered'
               else trigger.event.data.exit_gate }}
 ```
+
+## Checking push
+
+Push is registered, but not every site routes to a non-phone token, and a silent
+failure looks exactly like a quiet car park. Two ways to tell:
+
+- Any car event carries `source: push` or `source: poll`. A `poll` source with a
+  lag close to your scan interval means push is not arriving.
+- Call the **`happyparking.test_push`** service. The parking server is asked to
+  push to Home Assistant's own token; if it arrives, a **`happyparking_push`**
+  event appears on the bus (watch Developer Tools → Events). That event fires for
+  every push received, so it works as a live indicator without needing the log.
 
 ## Notes
 
