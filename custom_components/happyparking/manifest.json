@@ -1,0 +1,16 @@
+{
+  "domain": "happyparking",
+  "name": "HappyParking",
+  "codeowners": [
+    "@dlxmax"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/dlxmax/happyparking-homeassistant",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/dlxmax/happyparking-homeassistant/issues",
+  "requirements": [
+    "firebase-messaging>=0.4"
+  ],
+  "version": "0.1.0"
+}

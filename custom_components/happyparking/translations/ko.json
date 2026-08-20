@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "해피파킹",
+        "description": "아파트의 해피파킹 서버에 연결합니다. 값은 앱 동작을 관찰해 확인하거나, 선택 항목은 기본값으로 두어도 됩니다.",
+        "data": {
+          "base_url": "주차 서버 기본 URL",
+          "user_id": "앱 사용자 ID",
+          "site_code": "사이트 코드 (비우면 URL에서 자동 추출)",
+          "device_id": "이 브리지의 디바이스 ID",
+          "scan_interval": "폴링 대체 주기(초) (0 = 푸시 전용)",
+          "verify_ssl": "서버 TLS 인증서 검증"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "기본 URL은 http:// 또는 https:// 로 시작해야 합니다"
+    },
+    "abort": {
+      "already_configured": "이 계정은 이미 설정되어 있습니다."
+    }
+  }
+}

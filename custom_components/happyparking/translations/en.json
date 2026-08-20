@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HappyParking",
+        "description": "Connect to your building's HappyParking server. Find your values by observing the app, or leave the optional fields at their defaults.",
+        "data": {
+          "base_url": "Parking server base URL",
+          "user_id": "App user ID",
+          "site_code": "Site code (blank = derive from URL)",
+          "device_id": "Device ID for this bridge",
+          "scan_interval": "Poll fallback seconds (0 = push only)",
+          "verify_ssl": "Verify the server's TLS certificate"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "The base URL must start with http:// or https://"
+    },
+    "abort": {
+      "already_configured": "This account is already configured."
+    }
+  }
+}
