@@ -14,11 +14,6 @@ from homeassistant.config_entries import (
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.selector import (
-    SelectSelector,
-    SelectSelectorConfig,
-    SelectSelectorMode,
-)
 
 from .const import (
     CONF_BASE_URL,
@@ -42,7 +37,6 @@ from .discovery import (
     token_for_password,
 )
 
-CONF_METHOD = "method"
 CONF_LOGIN_RESULT = "login_result"
 CONF_LOGIN_ID = "login_id"
 CONF_PASSWORD = "password"
@@ -64,42 +58,30 @@ class HappyParkingConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Sign in with Kakao, the way most people sign in to the app."""
+        """Sign in with Kakao and read the settings out of the result."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            method = user_input.get(CONF_METHOD, "kakao")
-            if method == "password":
-                return await self.async_step_password()
-            if method == "manual":
-                return await self.async_step_manual()
-
             pasted = str(user_input.get(CONF_LOGIN_RESULT) or "").strip()
             if not pasted:
-                errors[CONF_LOGIN_RESULT] = "missing_login_result"
-            else:
-                try:
-                    return await self._from_login_result(pasted)
-                except DiscoveryError as err:
-                    errors["base"] = err.key
+                # An empty box is the way out for accounts that do not use Kakao.
+                return await self.async_step_other()
+            try:
+                return await self._from_login_result(pasted)
+            except DiscoveryError as err:
+                errors["base"] = err.key
 
-        schema = vol.Schema(
-            {
-                vol.Optional(CONF_LOGIN_RESULT, default=""): str,
-                vol.Optional(CONF_METHOD, default="kakao"): SelectSelector(
-                    SelectSelectorConfig(
-                        options=["kakao", "password", "manual"],
-                        mode=SelectSelectorMode.LIST,
-                        translation_key=CONF_METHOD,
-                    )
-                ),
-            }
-        )
         return self.async_show_form(
             step_id="user",
-            data_schema=schema,
+            data_schema=vol.Schema({vol.Optional(CONF_LOGIN_RESULT, default=""): str}),
             errors=errors,
             description_placeholders={"auth_url": kakao_authorize_url()},
         )
+
+    async def async_step_other(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Offer the sign-in methods that are not Kakao."""
+        return self.async_show_menu(step_id="other", menu_options=["password", "manual"])
 
     async def _from_login_result(self, pasted: str) -> ConfigFlowResult:
         """Read the settings out of whatever the login handed back."""

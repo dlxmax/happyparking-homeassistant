@@ -3,13 +3,12 @@
     "step": {
       "user": {
         "title": "Sign in to HappyParking",
-        "description": "**Step 1.** [Open the HappyParking Kakao login]({auth_url}) and sign in as usual.\n\n**Step 2.** You are sent back to the HappyParking site. Copy the whole address out of your browser's address bar and paste it below.\n\nThat address carries your login, and Home Assistant reads your parking server, user id and site code straight out of it.\n\nIf the page moves on before you can copy the address, paste your login token instead — in the browser, developer tools → Application → Local Storage → `token`.",
+        "description": "### [→ Sign in with Kakao]({auth_url})\n\nOpen that link, sign in as you normally would, and you will be sent back to the HappyParking site.\n\nThen copy the **whole address** out of your browser's address bar and paste it below. Your parking server, user id and site code are read out of it — there is nothing else to fill in.\n\nKakao only ever sends you back to HappyParking's own site, never to Home Assistant, which is why this last step has to be a copy and paste.\n\n*If the page moves on before you can copy the address:* open developer tools → Application → Local Storage → copy the value of `token` and paste that instead.\n\n*Not a Kakao account?* Leave the box empty and submit to pick another sign-in method.",
         "data": {
-          "login_result": "Address you were sent back to",
-          "method": "Sign-in method"
+          "login_result": "Address you were sent back to"
         },
         "data_description": {
-          "login_result": "Paste the address from step 2 here."
+          "login_result": "Paste it here, then submit."
         }
       },
       "password": {
@@ -27,17 +26,24 @@
           "user_id": "App user ID",
           "site_code": "Site code (blank = derive from URL)"
         }
+      },
+      "other": {
+        "title": "Other sign-in methods",
+        "description": "For accounts that do not use Kakao.",
+        "menu_options": {
+          "password": "HappyParking id and password",
+          "manual": "Enter server details myself"
+        }
       }
     },
     "error": {
       "invalid_url": "The base URL must start with http:// or https://",
-      "invalid_login_result": "That does not look like the address or token from a HappyParking login.",
+      "invalid_login_result": "That does not look like the address from a HappyParking login. Copy the whole address, starting with https://",
       "invalid_token": "The login token could not be read.",
       "login_failed": "The login did not succeed. Please try again.",
       "kakao_not_registered": "That Kakao account is not registered with HappyParking.",
       "no_server": "The login did not include a parking server address for your building.",
-      "cannot_connect": "Could not reach the HappyParking service.",
-      "missing_login_result": "Paste the address you were sent back to after signing in with Kakao."
+      "cannot_connect": "Could not reach the HappyParking service."
     },
     "abort": {
       "already_configured": "This account is already configured."
@@ -52,15 +58,6 @@
           "scan_interval": "Poll fallback seconds (0 = push only)",
           "verify_ssl": "Verify the server's TLS certificate"
         }
-      }
-    }
-  },
-  "selector": {
-    "method": {
-      "options": {
-        "kakao": "Kakao (the usual way)",
-        "password": "HappyParking id and password",
-        "manual": "Enter server details myself"
       }
     }
   }
