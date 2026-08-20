@@ -18,6 +18,15 @@ CONF_DEVICE_ID = "device_id"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_VERIFY_SSL = "verify_ssl"
 
+# HappyParking cloud (account/discovery) service
+CLOUD_URL = "https://app.hparking.co.kr/cloud"
+
+# The app's own Kakao client key and redirect target, as used by the official
+# web/app login. Reused so the login you complete is the real HappyParking one.
+KAKAO_REST_API_KEY = "REDACTED"
+KAKAO_REDIRECT_URI = f"{CLOUD_URL}/api/users/kakao/callback"
+KAKAO_AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
+
 DEFAULT_DEVICE_ID = "hass-happyparking"
 DEFAULT_SCAN_INTERVAL = 120  # seconds; poll fallback. 0 = push-only.
 DEFAULT_VERIFY_SSL = True

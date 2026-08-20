@@ -25,15 +25,7 @@ from .const import (
     FIREBASE,
     LOGGER,
 )
-
-
-def derive_site_code(base_url: str) -> str:
-    """The parking server subdomain is the site identifier (e.g. https://<site>.host -> <site>)."""
-    try:
-        host = base_url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
-        return host.split(".", 1)[0]
-    except Exception:  # noqa: BLE001
-        return ""
+from .discovery import derive_site_code
 
 
 class HappyParkingCoordinator:
@@ -42,7 +34,8 @@ class HappyParkingCoordinator:
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
-        data = entry.data
+        # Options (set after setup) win over the values captured at login.
+        data = {**entry.data, **entry.options}
         self.base = str(data[CONF_BASE_URL]).rstrip("/")
         self.user_id = int(data[CONF_USER_ID])
         self.site_code = str(data.get(CONF_SITE_CODE) or "").strip() or derive_site_code(self.base)

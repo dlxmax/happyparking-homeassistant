@@ -3,22 +3,60 @@
     "step": {
       "user": {
         "title": "해피파킹",
-        "description": "아파트의 해피파킹 서버에 연결합니다. 값은 앱 동작을 관찰해 확인하거나, 선택 항목은 기본값으로 두어도 됩니다.",
+        "description": "해피파킹 앱에 로그인하시는 방식 그대로 로그인하세요. 주차 서버 주소, 사용자 ID, 사이트 코드는 로그인 결과에서 자동으로 읽어옵니다.",
+        "menu_options": {
+          "kakao": "카카오로 로그인",
+          "password": "해피파킹 아이디와 비밀번호로 로그인",
+          "manual": "서버 정보를 직접 입력"
+        }
+      },
+      "kakao": {
+        "title": "카카오로 로그인",
+        "description": "1. 아래 링크를 열어 평소처럼 카카오 로그인을 완료하세요.\n\n{auth_url}\n\n2. 해피파킹 사이트로 돌아오면, 브라우저 주소창의 주소를 복사해 아래에 붙여넣으세요.\n\n주소를 복사하기 전에 화면이 넘어간다면, 대신 로그인 토큰을 붙여넣으세요 (브라우저 개발자 도구 → Application → Local Storage → `token`).",
         "data": {
-          "base_url": "주차 서버 기본 URL",
+          "login_result": "돌아온 주소 (또는 로그인 토큰)"
+        }
+      },
+      "password": {
+        "title": "해피파킹 로그인",
+        "data": {
+          "login_id": "해피파킹 아이디",
+          "password": "비밀번호"
+        }
+      },
+      "manual": {
+        "title": "서버 정보",
+        "description": "로그인이 되지 않을 때만 사용하세요.",
+        "data": {
+          "base_url": "주차 서버 주소",
           "user_id": "앱 사용자 ID",
-          "site_code": "사이트 코드 (비우면 URL에서 자동 추출)",
-          "device_id": "이 브리지의 디바이스 ID",
-          "scan_interval": "폴링 대체 주기(초) (0 = 푸시 전용)",
-          "verify_ssl": "서버 TLS 인증서 검증"
+          "site_code": "사이트 코드 (비우면 주소에서 추출)"
         }
       }
     },
     "error": {
-      "invalid_url": "기본 URL은 http:// 또는 https:// 로 시작해야 합니다"
+      "invalid_url": "주소는 http:// 또는 https:// 로 시작해야 합니다.",
+      "invalid_login_result": "해피파킹 로그인 주소나 토큰으로 보이지 않습니다.",
+      "invalid_token": "로그인 토큰을 읽을 수 없습니다.",
+      "login_failed": "로그인에 실패했습니다. 다시 시도해 주세요.",
+      "kakao_not_registered": "해피파킹에 등록되지 않은 카카오 계정입니다.",
+      "no_server": "로그인 결과에 우리 단지의 주차 서버 주소가 없습니다.",
+      "cannot_connect": "해피파킹 서버에 연결할 수 없습니다."
     },
     "abort": {
-      "already_configured": "이 계정은 이미 설정되어 있습니다."
+      "already_configured": "이미 설정된 계정입니다."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "해피파킹 설정",
+        "data": {
+          "device_id": "이 브리지의 기기 ID",
+          "scan_interval": "폴링 주기(초, 0 = 푸시만 사용)",
+          "verify_ssl": "서버 TLS 인증서 검증"
+        }
+      }
     }
   }
 }

@@ -5,7 +5,14 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
+from homeassistant.core import callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
@@ -20,36 +27,150 @@ from .const import (
     DEFAULT_VERIFY_SSL,
     DOMAIN,
 )
+from .discovery import (
+    DiscoveryError,
+    config_from_token,
+    derive_site_code,
+    kakao_authorize_url,
+    parse_login_result,
+    token_for_kakao_id,
+    token_for_password,
+)
+
+CONF_LOGIN_RESULT = "login_result"
+CONF_LOGIN_ID = "login_id"
+CONF_PASSWORD = "password"
+
+OPTIONS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_DEVICE_ID, default=DEFAULT_DEVICE_ID): str,
+        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): cv.positive_int,
+        vol.Optional(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): bool,
+    }
+)
 
 
 class HappyParkingConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for HappyParking."""
+    """Discover the parking server from a HappyParking login."""
 
     VERSION = 1
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the initial step."""
+        """Let the user pick how to sign in."""
+        return self.async_show_menu(
+            step_id="user", menu_options=["kakao", "password", "manual"]
+        )
+
+    async def async_step_kakao(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Sign in with Kakao and read the settings out of the result."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                token, kakao_id = parse_login_result(user_input[CONF_LOGIN_RESULT])
+                if token is None:
+                    token = await token_for_kakao_id(
+                        async_get_clientsession(self.hass), str(kakao_id)
+                    )
+                return await self._create(config_from_token(token))
+            except DiscoveryError as err:
+                errors["base"] = err.key
+
+        return self.async_show_form(
+            step_id="kakao",
+            data_schema=vol.Schema({vol.Required(CONF_LOGIN_RESULT): str}),
+            errors=errors,
+            description_placeholders={"auth_url": kakao_authorize_url()},
+        )
+
+    async def async_step_password(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Sign in with a HappyParking id and password."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                token = await token_for_password(
+                    async_get_clientsession(self.hass),
+                    str(user_input[CONF_LOGIN_ID]).strip(),
+                    str(user_input[CONF_PASSWORD]),
+                )
+                return await self._create(config_from_token(token))
+            except DiscoveryError as err:
+                errors["base"] = err.key
+
+        return self.async_show_form(
+            step_id="password",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_LOGIN_ID): str,
+                    vol.Required(CONF_PASSWORD): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_manual(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Enter the server details directly, for when a login is not possible."""
         errors: dict[str, str] = {}
         if user_input is not None:
             base = str(user_input[CONF_BASE_URL]).strip().rstrip("/")
-            if not base.startswith("http"):
+            if not base.startswith(("http://", "https://")):
                 errors[CONF_BASE_URL] = "invalid_url"
             else:
-                await self.async_set_unique_id(f"{base}-{user_input[CONF_USER_ID]}")
-                self._abort_if_unique_id_configured()
-                user_input[CONF_BASE_URL] = base
-                return self.async_create_entry(title="HappyParking", data=user_input)
+                site = str(user_input.get(CONF_SITE_CODE) or "").strip()
+                return await self._create(
+                    {
+                        CONF_BASE_URL: base,
+                        CONF_USER_ID: int(user_input[CONF_USER_ID]),
+                        CONF_SITE_CODE: site or derive_site_code(base),
+                    }
+                )
 
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_BASE_URL): str,
-                vol.Required(CONF_USER_ID): cv.positive_int,
-                vol.Optional(CONF_SITE_CODE, default=""): str,
-                vol.Optional(CONF_DEVICE_ID, default=DEFAULT_DEVICE_ID): str,
-                vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): cv.positive_int,
-                vol.Optional(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): bool,
-            }
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_BASE_URL): str,
+                    vol.Required(CONF_USER_ID): cv.positive_int,
+                    vol.Optional(CONF_SITE_CODE, default=""): str,
+                }
+            ),
+            errors=errors,
         )
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+
+    async def _create(self, data: dict[str, Any]) -> ConfigFlowResult:
+        """Store a discovered configuration as a config entry."""
+        await self.async_set_unique_id(f"{data[CONF_SITE_CODE]}-{data[CONF_USER_ID]}")
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title=f"HappyParking ({data[CONF_SITE_CODE]})", data=data
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(entry: ConfigEntry) -> OptionsFlow:
+        """Get the options flow."""
+        return HappyParkingOptionsFlow()
+
+
+class HappyParkingOptionsFlow(OptionsFlow):
+    """Tune how this bridge talks to the parking server."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(
+                OPTIONS_SCHEMA, self.config_entry.options
+            ),
+        )

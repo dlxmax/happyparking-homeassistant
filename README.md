@@ -6,8 +6,8 @@ leaves your apartment parking lot, using the HappyParking (해피파킹) system 
 BN Industry (비엔인더스트리, `com.bnids.happyparking`).
 
 There is no official public API, so this talks to your building's own parking
-server the same way the phone app does. You provide your account/site values in
-the config dialog — nothing is hard-coded.
+server the same way the phone app does. You sign in during setup and everything
+else is discovered from that login — nothing is hard-coded.
 
 ## How it works
 
@@ -32,21 +32,34 @@ Each car event is exposed two ways:
    **Integration**.
 3. Install **HappyParking**, then **restart Home Assistant**.
 4. Settings → Devices & Services → **Add Integration** → **HappyParking**, and
-   fill in the dialog (below).
+   sign in (below).
 
 (Manual install: copy `custom_components/happyparking/` into your HA
 `config/custom_components/` folder and restart.)
 
-## Configuration
+## Setup
 
-| field | required | meaning |
-|-------|----------|---------|
-| Parking server base URL | yes | your building's server, e.g. `https://<site>.hparking.co.kr:9443` |
-| App user ID | yes | your appUser id |
-| Site code | no | routing id for push; blank = derived from the URL subdomain |
-| Device ID | no | a device id unique to this bridge (default `hass-happyparking`) |
-| Poll fallback seconds | no | default `120`; `0` = push-only |
-| Verify TLS certificate | no | turn off only if your server uses a self-signed cert |
+When you add the integration it asks how you sign in — the same way you sign in
+to the app:
+
+- **Kakao** — HA gives you the real HappyParking Kakao login link. Complete the
+  login, then paste back the address you land on. (If the page moves on too
+  fast, paste your login token instead; the dialog tells you where to find it.)
+- **HappyParking id and password** — for accounts that were not created through
+  a social login.
+- **Enter server details myself** — a fallback if signing in does not work.
+
+Either login gives back a signed token that already contains your building's
+parking server address, your app user id and your site code, so those are filled
+in for you.
+
+Afterwards, **Configure** on the integration exposes:
+
+| option | meaning |
+|--------|---------|
+| Device ID | a device id unique to this bridge (default `hass-happyparking`) |
+| Poll fallback seconds | default `120`; `0` = push-only |
+| Verify TLS certificate | turn off only if your server uses a self-signed cert |
 
 ## Example automation
 
