@@ -1,0 +1,21 @@
+# systemd unit. Adjust WorkingDirectory/ExecStart paths and the HA_WEBHOOK_URL.
+# Install:  sudo cp happyparking-bridge.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now happyparking-bridge
+[Unit]
+Description=HappyParking -> Home Assistant bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/happyparking-ha
+Environment=HA_WEBHOOK_URL=http://homeassistant.local:8123/api/webhook/happyparking
+Environment=POLL_FALLBACK_SEC=120
+Environment=LOCAL_BASE=https://your-site.hparking.co.kr:9443
+Environment=USER_ID=0
+ExecStart=/opt/happyparking-ha/venv/bin/python /opt/happyparking-ha/happyparking_bridge.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+# personal push identity — do NOT commit (it's your registered FCM credential)
+fcm_credentials.json
+__pycache__/
+*.pyc
+venv/
+.env

@@ -1,0 +1,22 @@
+# Home Assistant automation — paste into automations.yaml (or the GUI as YAML).
+# Fires a notification whenever the bridge posts a car in/out event to the webhook.
+# The webhook id below must match HA_WEBHOOK_URL you give the bridge.
+- alias: HappyParking car in/out notification
+  trigger:
+    - platform: webhook
+      webhook_id: happyparking        # -> http://<ha>:8123/api/webhook/happyparking
+      allowed_methods: [POST]
+      local_only: false               # set true if the bridge runs on the HA host/LAN
+  action:
+    - variables:
+        car: "{{ trigger.json.car_no }}"
+        state: "{{ trigger.json.state }}"          # 'entered' or 'exited'
+        gate: >-
+          {{ trigger.json.entry_gate if state == 'entered' else trigger.json.exit_gate }}
+        when: "{{ trigger.json.event_time }}"
+    - service: notify.notify
+      data:
+        title: "🚗 HappyParking"
+        message: >-
+          {{ car }} {{ '들어왔어요 (entered)' if state == 'entered' else '나갔어요 (exited)' }}
+          — {{ gate }} @ {{ when }}
