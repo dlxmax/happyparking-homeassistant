@@ -11,7 +11,7 @@ import binascii
 import json
 import re
 from typing import Any
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlparse
 
 import aiohttp
 
@@ -20,10 +20,8 @@ from .const import (
     CONF_BASE_URL,
     CONF_SITE_CODE,
     CONF_USER_ID,
-    KAKAO_AUTHORIZE_URL,
-    KAKAO_REDIRECT_URI,
-    KAKAO_REST_API_KEY,
     LOGGER,
+    LOGIN_URL,
 )
 
 JWT_RE = re.compile(r"^[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*$")
@@ -38,15 +36,9 @@ class DiscoveryError(Exception):
         self.key = key
 
 
-def kakao_authorize_url() -> str:
-    """The real HappyParking Kakao login URL."""
-    return f"{KAKAO_AUTHORIZE_URL}?" + urlencode(
-        {
-            "client_id": KAKAO_REST_API_KEY,
-            "redirect_uri": KAKAO_REDIRECT_URI,
-            "response_type": "code",
-        }
-    )
+def login_url() -> str:
+    """HappyParking's own login page, with every sign-in method it offers."""
+    return LOGIN_URL
 
 
 def _b64decode(data: str) -> bytes:
@@ -90,7 +82,7 @@ def server_host(base_url: str) -> str:
     return base_url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
 
 
-def parse_login_result(raw: str) -> tuple[str | None, str | None]:
+def parse_pasted_login(raw: str) -> tuple[str | None, str | None]:
     """Accept whatever the user pasted back and return (token, kakao_id).
 
     Handles the address bar after login (which carries the login response), the
@@ -98,21 +90,21 @@ def parse_login_result(raw: str) -> tuple[str | None, str | None]:
     """
     raw = (raw or "").strip().strip('"')
     if not raw:
-        raise DiscoveryError("invalid_login_result")
+        raise DiscoveryError("invalid_login_token")
 
     if raw.startswith(("http://", "https://")):
         query = urlparse(raw)
         params = parse_qs(query.query) | parse_qs(query.fragment)
         for key in ("response", "token", "kakaoId"):
             if values := params.get(key):
-                return parse_login_result(values[0])
-        raise DiscoveryError("invalid_login_result")
+                return parse_pasted_login(values[0])
+        raise DiscoveryError("invalid_login_token")
 
     if raw.startswith("{"):
         try:
             payload = json.loads(raw)
         except ValueError as err:
-            raise DiscoveryError("invalid_login_result") from err
+            raise DiscoveryError("invalid_login_token") from err
         data = payload.get("data") or {}
         if isinstance(data, dict) and data.get("token"):
             return str(data["token"]), None
@@ -126,7 +118,7 @@ def parse_login_result(raw: str) -> tuple[str | None, str | None]:
     if raw.isdigit():
         return None, raw
 
-    raise DiscoveryError("invalid_login_result")
+    raise DiscoveryError("invalid_login_token")
 
 
 async def _cloud_json(

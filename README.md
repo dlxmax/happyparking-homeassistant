@@ -39,20 +39,25 @@ Each car event is exposed two ways:
 
 ## Setup
 
-When you add the integration it asks how you sign in — the same way you sign in
-to the app:
+Adding the integration sends you to **HappyParking's own login page**
+(`app.hparking.co.kr/happyparking/login`) — the same one the app uses, with both
+**Kakao** and **HappyParking id** sign-in. Sign in there as you normally would,
+then copy your login token back into Home Assistant:
 
-- **Kakao** — HA gives you the real HappyParking Kakao login link. Complete the
-  login, then paste back the address you land on. (If the page moves on too
-  fast, paste your login token instead; the dialog tells you where to find it.)
-- **HappyParking id and password** — for accounts that were not created through
-  a social login.
-- **Enter server details myself** — a fallback if signing in does not work.
+> F12 → **Application** → **Local Storage** → `https://app.hparking.co.kr` → copy
+> the value of `token`.
 
-Either login gives back a signed token that already contains your building's
-parking server address, your app user id and your site code, so those are filled
-in for you. The site code is its own identifier — it is not the server's
-subdomain — so it is only ever read from the login, never guessed.
+That token is a signed blob that already contains your building's parking server
+address, your app user id and your site code, so nothing else has to be typed in.
+The site code is its own identifier — it is not the server's subdomain — so it is
+only ever read from the login, never guessed.
+
+The token has to be copied by hand because HappyParking's login only ever returns
+to HappyParking's own site, never to your Home Assistant.
+
+If you would rather not use a browser, submit the box empty and you get two
+alternatives: signing in with a **HappyParking id and password** directly, or
+entering the **server details** yourself.
 
 Afterwards, **Configure** on the integration exposes:
 
@@ -89,11 +94,5 @@ actions:
   integration handles household cars only.
 - Push routing to a second (non-phone) token can vary by site; the poll engine
   covers you regardless.
-
-## Icon
-
-The app's mark is in `brands/happyparking/` (`icon.png` 256², `icon@2x.png` 512²).
-For it to render in Home Assistant it must be added to the
-[home-assistant/brands](https://github.com/home-assistant/brands) repository
-under `custom_integrations/happyparking/`; that submission is separate from this
-repo.
+- The integration ships its own icon in `custom_components/happyparking/brand/`;
+  Home Assistant serves it locally from 2026.3 onwards.

@@ -30,14 +30,14 @@ from .const import (
 from .discovery import (
     DiscoveryError,
     config_from_token,
+    login_url,
+    parse_pasted_login,
     server_host,
-    kakao_authorize_url,
-    parse_login_result,
     token_for_kakao_id,
     token_for_password,
 )
 
-CONF_LOGIN_RESULT = "login_result"
+CONF_LOGIN_TOKEN = "login_token"
 CONF_LOGIN_ID = "login_id"
 CONF_PASSWORD = "password"
 
@@ -58,34 +58,34 @@ class HappyParkingConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Sign in with Kakao and read the settings out of the result."""
+        """Take the token from a HappyParking login and read the settings out of it."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            pasted = str(user_input.get(CONF_LOGIN_RESULT) or "").strip()
+            pasted = str(user_input.get(CONF_LOGIN_TOKEN) or "").strip()
             if not pasted:
-                # An empty box is the way out for accounts that do not use Kakao.
+                # An empty box is the way out for anyone who cannot use a browser.
                 return await self.async_step_other()
             try:
-                return await self._from_login_result(pasted)
+                return await self._from_pasted_login(pasted)
             except DiscoveryError as err:
                 errors["base"] = err.key
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({vol.Optional(CONF_LOGIN_RESULT, default=""): str}),
+            data_schema=vol.Schema({vol.Optional(CONF_LOGIN_TOKEN, default=""): str}),
             errors=errors,
-            description_placeholders={"auth_url": kakao_authorize_url()},
+            description_placeholders={"login_url": login_url()},
         )
 
     async def async_step_other(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Offer the sign-in methods that are not Kakao."""
+        """Offer the ways in that do not involve a browser login."""
         return self.async_show_menu(step_id="other", menu_options=["password", "manual"])
 
-    async def _from_login_result(self, pasted: str) -> ConfigFlowResult:
+    async def _from_pasted_login(self, pasted: str) -> ConfigFlowResult:
         """Read the settings out of whatever the login handed back."""
-        token, kakao_id = parse_login_result(pasted)
+        token, kakao_id = parse_pasted_login(pasted)
         if token is None:
             token = await token_for_kakao_id(
                 async_get_clientsession(self.hass), str(kakao_id)

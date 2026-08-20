@@ -21,11 +21,9 @@ CONF_VERIFY_SSL = "verify_ssl"
 # HappyParking cloud (account/discovery) service
 CLOUD_URL = "https://app.hparking.co.kr/cloud"
 
-# The app's own Kakao client key and redirect target, as used by the official
-# web/app login. Reused so the login you complete is the real HappyParking one.
-KAKAO_REST_API_KEY = "REDACTED"
-KAKAO_REDIRECT_URI = f"{CLOUD_URL}/api/users/kakao/callback"
-KAKAO_AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
+# HappyParking's own login page, offering the same Kakao and id/password
+# sign-ins as the app. Setup links here rather than to any provider directly.
+LOGIN_URL = "https://app.hparking.co.kr/happyparking/login"
 
 DEFAULT_DEVICE_ID = "hass-happyparking"
 DEFAULT_SCAN_INTERVAL = 120  # seconds; poll fallback. 0 = push-only.

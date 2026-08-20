@@ -3,16 +3,17 @@
     "step": {
       "user": {
         "title": "Sign in to HappyParking",
-        "description": "### [→ Sign in with Kakao]({auth_url})\n\nOpen that link, sign in as you normally would, and you will be sent back to the HappyParking site.\n\nThen copy the **whole address** out of your browser's address bar and paste it below. Your parking server, user id and site code are read out of it — there is nothing else to fill in.\n\nKakao only ever sends you back to HappyParking's own site, never to Home Assistant, which is why this last step has to be a copy and paste.\n\n*If the page moves on before you can copy the address:* open developer tools → Application → Local Storage → copy the value of `token` and paste that instead.\n\n*Not a Kakao account?* Leave the box empty and submit to pick another sign-in method.",
+        "description": "### [→ Open the HappyParking login page]({login_url})\n\nSign in there exactly as you always do — **Kakao** or your **HappyParking id**.\n\nOnce you are signed in, copy your login token out of that page and paste it below:\n\n1. Press **F12** to open the browser's developer tools.\n2. Go to **Application** → **Local Storage** → `https://app.hparking.co.kr`.\n3. Copy the value of **`token`** (a long string of letters and numbers).\n\nYour building's parking server, your app user id and your site code are all read out of that token, so there is nothing else to fill in. The token is used once, here, and is not sent anywhere but your own parking server.\n\n*If your login sent you back to an address containing the token, you can paste that whole address instead.*\n\n*No browser to hand?* Leave the box empty and submit to sign in another way.",
         "data": {
-          "login_result": "Address you were sent back to"
+          "login_token": "Login token"
         },
         "data_description": {
-          "login_result": "Paste it here, then submit."
+          "login_token": "Paste the token (or the address you landed on) here."
         }
       },
       "password": {
-        "title": "Sign in to HappyParking",
+        "title": "Sign in with a HappyParking id",
+        "description": "For accounts that were not created through Kakao.",
         "data": {
           "login_id": "HappyParking id",
           "password": "Password"
@@ -28,8 +29,8 @@
         }
       },
       "other": {
-        "title": "Other sign-in methods",
-        "description": "For accounts that do not use Kakao.",
+        "title": "Other ways in",
+        "description": "Use these if you cannot complete the login page in a browser.",
         "menu_options": {
           "password": "HappyParking id and password",
           "manual": "Enter server details myself"
@@ -38,8 +39,8 @@
     },
     "error": {
       "invalid_url": "The base URL must start with http:// or https://",
-      "invalid_login_result": "That does not look like the address from a HappyParking login. Copy the whole address, starting with https://",
-      "invalid_token": "The login token could not be read.",
+      "invalid_login_token": "That does not look like a HappyParking login token. Copy the whole value of `token` from Local Storage.",
+      "invalid_token": "The login token could not be read. It may have been truncated — copy the whole value.",
       "login_failed": "The login did not succeed. Please try again.",
       "kakao_not_registered": "That Kakao account is not registered with HappyParking.",
       "no_server": "The login did not include a parking server address for your building.",
