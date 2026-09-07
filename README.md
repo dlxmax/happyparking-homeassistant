@@ -90,13 +90,23 @@ A car movement is written to the logbook by plate:
 
 > **HappyParking** 00가0000 entered at Main gate
 
-The event entity logs itself alongside that, but an event entity's state is
-only ever the event type, so its own row can say no more than `entered`. If you
-would rather have just the one line, hide the bare row in
-`configuration.yaml`:
+An event entity's own state is only ever the event type, so its row can say no
+more than `entered` - which car it was, the one thing worth recording, is
+missing. The movement is therefore described from the `happyparking_car` bus
+event, where the plate is.
+
+The described row names the event entity, so it shows up both in the main
+Logbook and in the **Activity** list of the entity's own dialog. That naming is
+also why there is no `logbook: exclude:` recipe here: excluding the entity would
+take the described row down with the bare one, leaving the logbook emptier than
+before rather than tidier.
+
+The bare `entered` / `exited` row is still written alongside it. To drop it and
+leave only the row with the plate, keep the entity out of the recorder - at the
+cost of the entity's history graph:
 
 ```yaml
-logbook:
+recorder:
   exclude:
     entities:
       - event.happyparking_car_in_out

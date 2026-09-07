@@ -30,6 +30,9 @@ class HappyParkingCarEvent(EventEntity):
         self._attr_unique_id = f"{entry.entry_id}_car"
 
     async def async_added_to_hass(self) -> None:
+        # So the coordinator can name this entity on the bus event, which is
+        # what lands the plate in this entity's own Activity list.
+        self._coordinator.logbook_entity_id = self.entity_id
         self.async_on_remove(self._coordinator.add_listener(self._handle))
 
     @callback

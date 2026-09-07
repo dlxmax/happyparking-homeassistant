@@ -79,6 +79,11 @@ class HappyParkingCoordinator:
         self._tasks: list[asyncio.Task] = []
         self._fcm = None
         self._push_token: str | None = None
+        # The event entity tells us its id once it exists. Naming it on the
+        # bus event is what puts the described logbook row - the one with the
+        # plate on it - into that entity's own Activity list, which is where
+        # a person actually looks.
+        self.logbook_entity_id: str | None = None
         self._session: aiohttp.ClientSession | None = None
 
     # -- listener registration (used by the event entity) --------------------
@@ -227,6 +232,8 @@ class HappyParkingCoordinator:
     def _dispatch(self, state: str, data: dict, source: str) -> None:
         LOGGER.info("car %s %s (via %s)", data.get("car_no"), state, source)
         payload = {"state": state, "source": source, **data}
+        if self.logbook_entity_id:
+            payload["entity_id"] = self.logbook_entity_id
         self.hass.bus.async_fire(EVENT_CAR, payload)
         for cb in list(self._listeners):
             cb(state, {"source": source, **data})
