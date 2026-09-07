@@ -6,6 +6,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, LOGGER, PLATFORMS, SERVICE_TEST_PUSH
@@ -41,11 +42,22 @@ def _make_test_push(hass: HomeAssistant):
     """Ask the parking server to push to us, so delivery can be tested on demand."""
 
     async def _test_push(call: ServiceCall) -> None:
-        for coordinator in hass.data.get(DOMAIN, {}).values():
+        coordinators = list(hass.data.get(DOMAIN, {}).values())
+        if not coordinators:
+            raise HomeAssistantError("HappyParking is not set up")
+        for coordinator in coordinators:
+            if not coordinator.enable_push:
+                # Swallowing this would report success while doing nothing,
+                # which is worse than useless when there is no log to check.
+                raise HomeAssistantError(
+                    "Push is turned off for this entry, so there is no token to "
+                    "test. Enable it in the integration's options first."
+                )
             try:
                 await coordinator.async_test_push(call.data["message"])
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 LOGGER.warning("test push failed: %s", err)
+                raise HomeAssistantError(f"Test push failed: {err}") from err
 
     return _test_push
 

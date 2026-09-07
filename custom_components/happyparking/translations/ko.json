@@ -57,7 +57,8 @@
         "data": {
           "device_id": "이 브리지의 기기 ID",
           "scan_interval": "폴링 주기(초, 0 = 푸시만 사용)",
-          "verify_ssl": "서버 TLS 인증서 검증"
+          "verify_ssl": "서버 TLS 인증서 검증",
+          "enable_push": "푸시 토큰 등록 (해제하면 서버 푸시 목록에 등록하지 않음)"
         }
       }
     }

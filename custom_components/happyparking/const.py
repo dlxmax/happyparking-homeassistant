@@ -17,6 +17,7 @@ CONF_SITE_CODE = "site_code"
 CONF_DEVICE_ID = "device_id"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_VERIFY_SSL = "verify_ssl"
+CONF_ENABLE_PUSH = "enable_push"
 
 # HappyParking cloud (account/discovery) service
 CLOUD_URL = "https://app.hparking.co.kr/cloud"
@@ -28,6 +29,9 @@ LOGIN_URL = "https://app.hparking.co.kr/happyparking/login"
 DEFAULT_DEVICE_ID = "hass-happyparking"
 DEFAULT_SCAN_INTERVAL = 120  # seconds; poll fallback. 0 = push-only.
 DEFAULT_VERIFY_SSL = True
+# Registering a push token writes a row the parking server shares with the
+# phone app, so it has to be possible to stay out of that table entirely.
+DEFAULT_ENABLE_PUSH = True
 
 # Events fired on the HA bus (in addition to the event entity)
 EVENT_CAR = "happyparking_car"

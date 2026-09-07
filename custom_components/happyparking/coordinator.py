@@ -18,9 +18,11 @@ from .const import (
     CONF_SITE_CODE,
     CONF_USER_ID,
     CONF_VERIFY_SSL,
+    CONF_ENABLE_PUSH,
     DEFAULT_DEVICE_ID,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_VERIFY_SSL,
+    DEFAULT_ENABLE_PUSH,
     EVENT_CAR,
     EVENT_PUSH,
     FIREBASE,
@@ -48,13 +50,20 @@ class HappyParkingCoordinator:
         self.device_id = str(data.get(CONF_DEVICE_ID) or DEFAULT_DEVICE_ID)
         self.verify_ssl = bool(data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL))
         self.scan_interval = int(data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
+        self.enable_push = bool(data.get(CONF_ENABLE_PUSH, DEFAULT_ENABLE_PUSH))
+        if not self.enable_push and self.scan_interval <= 0:
+            # Both engines off would mean no events at all; polling is the
+            # one that has to stay.
+            self.scan_interval = DEFAULT_SCAN_INTERVAL
         self.creds_path = hass.config.path(f".happyparking_fcm_{entry.entry_id}.json")
 
         self._seen: set[str] = set()
         # Visits that have entered but not yet exited. Their rows sink down the
         # list as newer visits arrive, so a sweep must page deep enough to reach
         # them or their exit is never noticed.
-        self._open: set[int] = set()
+        # visitCarId -> entry timestamp, so a sweep knows how far back
+        # it has to read before every open visit is accounted for.
+        self._open: dict[int, str] = {}
         # Until history has been read once, everything on the server looks new.
         # Emitting then would replay old events as fresh notifications.
         self._primed = False
@@ -106,8 +115,11 @@ class HappyParkingCoordinator:
         # register the way a push-capable client does.
         wrapped = token if token.startswith("FCM[") else f"FCM[{token}]"
         self._push_token = wrapped
-        # Exactly the payload the app sends - the server ignored a site code
-        # when we sent one, so it is not ours to set here.
+        # Exactly the four fields the app itself sends. The site code is the
+        # server's to fill in: its own client never sends one, and a PUT
+        # carrying the correct code - under either spelling - is accepted and
+        # then stored as "". There is no endpoint that sets it, so a blank
+        # site code on our row is not something a client can fix.
         body = {
             "userId": self.user_id,
             "deviceId": self.device_id,
@@ -199,9 +211,9 @@ class HappyParkingCoordinator:
                     if emit:
                         self._dispatch(state, data, source)
                 if state == "entered":
-                    self._open.add(vid)
+                    self._open[vid] = rec.get("entvhclDt") or ""
                 else:
-                    self._open.discard(vid)
+                    self._open.pop(vid, None)
 
     @callback
     def _dispatch(self, state: str, data: dict, source: str) -> None:
@@ -222,22 +234,37 @@ class HappyParkingCoordinator:
         """
         records: list[dict] = []
         found: set[int] = set()
-        awaiting = set(self._open)
+        awaiting = dict(self._open)
+        # The list is ordered by entry time, so nothing still open can sit below
+        # the oldest open entry. Reading past it means the rest are gone from the
+        # window, not further down - which is what stops a vanished visit from
+        # costing a full page walk on every poll, forever.
+        floor = min(awaiting.values()) if awaiting else None
+        pages = 0
         for page in range(1, MAX_POLL_PAGES + 1):
             rows = await self._get_page(page)
             if not rows:
                 break
+            pages = page
             records.extend(rows)
             found.update(r.get("visitCarId") for r in rows)
-            if not deep and awaiting <= found:
+            if deep:
+                continue
+            if awaiting.keys() <= found:
                 break
-        if missing := awaiting - found:
+            if floor is not None and (rows[-1].get("entvhclDt") or "") < floor:
+                break
+        if missing := set(awaiting) - found:
             LOGGER.warning(
-                "%d visit(s) awaiting an exit were not found within %s pages: %s",
+                "%d visit(s) awaiting an exit are no longer in the list after %s "
+                "page(s); giving up on them: %s",
                 len(missing),
-                MAX_POLL_PAGES,
+                pages,
                 sorted(missing),
             )
+            for vid in missing:
+                self._open.pop(vid, None)
+        LOGGER.debug("%s sweep read %d page(s), %d record(s)", source, pages, len(records))
         self._process(records, source, emit=emit)
 
     async def async_start(self) -> None:
@@ -245,8 +272,11 @@ class HappyParkingCoordinator:
         await self._async_prime()
         self._tasks.append(self.entry.async_create_background_task(
             self.hass, self._run_poll(), "happyparking_poll"))
-        self._tasks.append(self.entry.async_create_background_task(
-            self.hass, self._run_push(), "happyparking_push"))
+        if self.enable_push:
+            self._tasks.append(self.entry.async_create_background_task(
+                self.hass, self._run_push(), "happyparking_push"))
+        else:
+            LOGGER.info("push engine disabled; polling every %ss", self.scan_interval)
 
     async def _async_prime(self) -> bool:
         """Learn the existing history without notifying about any of it."""

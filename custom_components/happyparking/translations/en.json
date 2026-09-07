@@ -57,7 +57,8 @@
         "data": {
           "device_id": "Device ID for this bridge",
           "scan_interval": "Poll fallback seconds (0 = push only)",
-          "verify_ssl": "Verify the server's TLS certificate"
+          "verify_ssl": "Verify the server's TLS certificate",
+          "enable_push": "Register a push token (uncheck to stay out of the server's push table)"
         }
       }
     }
