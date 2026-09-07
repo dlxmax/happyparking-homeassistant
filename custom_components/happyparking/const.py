@@ -18,6 +18,7 @@ CONF_DEVICE_ID = "device_id"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_VERIFY_SSL = "verify_ssl"
 CONF_ENABLE_PUSH = "enable_push"
+CONF_ENABLE_NOTIFY = "enable_notify"
 
 # HappyParking cloud (account/discovery) service
 CLOUD_URL = "https://app.hparking.co.kr/cloud"
@@ -32,6 +33,10 @@ DEFAULT_VERIFY_SSL = True
 # Registering a push token writes a row the parking server shares with the
 # phone app, so it has to be possible to stay out of that table entirely.
 DEFAULT_ENABLE_PUSH = True
+# A notification per car movement is the point of the integration for
+# most people, but it is the first thing to become noise on a busy gate,
+# so it has to be switchable without giving up the events themselves.
+DEFAULT_ENABLE_NOTIFY = True
 
 # Events fired on the HA bus (in addition to the event entity)
 EVENT_CAR = "happyparking_car"

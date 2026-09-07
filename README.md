@@ -76,6 +76,31 @@ Afterwards, **Configure** on the integration exposes:
 | Device ID | a device id unique to this bridge (default `hass-happyparking`) |
 | Poll fallback seconds | default `120`; `0` = push-only |
 | Verify TLS certificate | turn off only if your server uses a self-signed cert |
+| Register a push token | uncheck to stay out of the parking server's push table; polling still delivers every event |
+| Show a notification for each car | on by default; uncheck for events without the notifications |
+
+Turning the notifications off does not cost you the events. The event entity
+and the `happyparking_car` bus event fire either way, so automations built on
+them - lighting the hallway on arrival, say - keep working with a silent
+notification drawer.
+
+## In the logbook
+
+A car movement is written to the logbook by plate:
+
+> **HappyParking** 00가0000 entered at Main gate
+
+The event entity logs itself alongside that, but an event entity's state is
+only ever the event type, so its own row can say no more than `entered`. If you
+would rather have just the one line, hide the bare row in
+`configuration.yaml`:
+
+```yaml
+logbook:
+  exclude:
+    entities:
+      - event.happyparking_car_in_out
+```
 
 ## Example automation
 

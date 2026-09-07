@@ -23,10 +23,12 @@ from .const import (
     CONF_USER_ID,
     CONF_VERIFY_SSL,
     CONF_ENABLE_PUSH,
+    CONF_ENABLE_NOTIFY,
     DEFAULT_DEVICE_ID,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_VERIFY_SSL,
     DEFAULT_ENABLE_PUSH,
+    DEFAULT_ENABLE_NOTIFY,
     DOMAIN,
 )
 from .discovery import (
@@ -49,6 +51,7 @@ OPTIONS_SCHEMA = vol.Schema(
         vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): cv.positive_int,
         vol.Optional(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): bool,
         vol.Optional(CONF_ENABLE_PUSH, default=DEFAULT_ENABLE_PUSH): bool,
+        vol.Optional(CONF_ENABLE_NOTIFY, default=DEFAULT_ENABLE_NOTIFY): bool,
     }
 )
 

@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 import aiohttp
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 
@@ -19,10 +20,13 @@ from .const import (
     CONF_USER_ID,
     CONF_VERIFY_SSL,
     CONF_ENABLE_PUSH,
+    CONF_ENABLE_NOTIFY,
     DEFAULT_DEVICE_ID,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_VERIFY_SSL,
     DEFAULT_ENABLE_PUSH,
+    DEFAULT_ENABLE_NOTIFY,
+    DOMAIN,
     EVENT_CAR,
     EVENT_PUSH,
     FIREBASE,
@@ -30,6 +34,7 @@ from .const import (
     MAX_POLL_PAGES,
     POLL_PAGE_SIZE,
 )
+from .describe import car_description
 
 
 class FetchError(Exception):
@@ -51,6 +56,9 @@ class HappyParkingCoordinator:
         self.verify_ssl = bool(data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL))
         self.scan_interval = int(data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
         self.enable_push = bool(data.get(CONF_ENABLE_PUSH, DEFAULT_ENABLE_PUSH))
+        self.enable_notify = bool(
+            data.get(CONF_ENABLE_NOTIFY, DEFAULT_ENABLE_NOTIFY)
+        )
         if not self.enable_push and self.scan_interval <= 0:
             # Both engines off would mean no events at all; polling is the
             # one that has to stay.
@@ -222,6 +230,32 @@ class HappyParkingCoordinator:
         self.hass.bus.async_fire(EVENT_CAR, payload)
         for cb in list(self._listeners):
             cb(state, {"source": source, **data})
+        if self.enable_notify:
+            self._notify(state, data)
+
+    @callback
+    def _notify(self, state: str, data: dict) -> None:
+        """Raise a persistent notification for one car movement.
+
+        Turning this off must not cost the events themselves: the automations
+        people hang off happyparking_car - lighting the hallway on arrival and
+        so on - are the reason to run the integration at all, and they keep
+        firing either way.
+        """
+        gate = data.get("entry_gate") if state == "entered" else data.get("exit_gate")
+        message = f"{car_description(data)} {state}"
+        if gate:
+            message = f"{message} - {gate}"
+        if event_time := data.get("event_time"):
+            message = f"{message} @ {event_time}"
+        persistent_notification.async_create(
+            self.hass,
+            message,
+            title="HappyParking",
+            # One notification per visit and direction, so a re-read of the
+            # same row replaces its notification instead of stacking a second.
+            notification_id=f"{DOMAIN}_{data.get('visit_car_id')}_{state}",
+        )
 
     # -- engines -------------------------------------------------------------
     async def _sweep(self, source: str, emit: bool = True, deep: bool = False) -> None:
