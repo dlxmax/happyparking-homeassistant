@@ -19,6 +19,7 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_VERIFY_SSL = "verify_ssl"
 CONF_ENABLE_PUSH = "enable_push"
 CONF_ENABLE_NOTIFY = "enable_notify"
+CONF_ENABLE_VISITORS = "enable_visitors"
 
 # HappyParking cloud (account/discovery) service
 CLOUD_URL = "https://app.hparking.co.kr/cloud"
@@ -37,9 +38,16 @@ DEFAULT_ENABLE_PUSH = True
 # most people, but it is the first thing to become noise on a busy gate,
 # so it has to be switchable without giving up the events themselves.
 DEFAULT_ENABLE_NOTIFY = True
+# Visitor cars are the same list shape under a different path, and they
+# are the ones you are least likely to be expecting, so they are on by
+# default. They cost a second sweep per poll, hence the switch.
+DEFAULT_ENABLE_VISITORS = True
 
-# Events fired on the HA bus (in addition to the event entity)
+# Events fired on the HA bus (in addition to the event entities). Household
+# and visitor cars get their own event and their own entity, so a doorbell
+# automation and an "are we home" automation never have to tell them apart.
 EVENT_CAR = "happyparking_car"
+EVENT_VISITOR = "happyparking_visitor"
 # Every raw push the parking server sends us, so push delivery is observable
 # even when the log is not reachable.
 EVENT_PUSH = "happyparking_push"
@@ -54,6 +62,12 @@ MAX_POLL_PAGES = 10
 SERVICE_TEST_PUSH = "test_push"
 
 EVENT_TYPES = ["entered", "exited"]
+
+# The two visit lists. Both live at
+# /local/api/visitcar/<kind>/appuser/<user_id>/recent and return the same
+# record shape; only the path segment differs.
+KIND_HOUSEHOLD = "household"
+KIND_VISITOR = "visitor"
 
 # Firebase project of the HappyParking app (extracted from the APK; stable app identity)
 FIREBASE = {

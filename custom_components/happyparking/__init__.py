@@ -5,7 +5,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import Event, HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
@@ -24,10 +24,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    async def _async_stop(_event: Event) -> None:
+        await coordinator.async_stop()
+
+    # A plain lambda scheduling a task here is called from whichever thread
+    # fires the stop event, which Home Assistant rejects as unsafe and which
+    # left async_stop() never awaited. An async listener is awaited on the
+    # loop, so the session and the FCM client actually get closed.
     entry.async_on_unload(
-        hass.bus.async_listen_once(
-            EVENT_HOMEASSISTANT_STOP, lambda _evt: hass.async_create_task(coordinator.async_stop())
-        )
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _async_stop)
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

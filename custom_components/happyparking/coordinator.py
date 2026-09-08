@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from collections.abc import Callable
 
 import aiohttp
 
@@ -21,20 +20,26 @@ from .const import (
     CONF_VERIFY_SSL,
     CONF_ENABLE_PUSH,
     CONF_ENABLE_NOTIFY,
+    CONF_ENABLE_VISITORS,
     DEFAULT_DEVICE_ID,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_VERIFY_SSL,
     DEFAULT_ENABLE_PUSH,
     DEFAULT_ENABLE_NOTIFY,
+    DEFAULT_ENABLE_VISITORS,
     DOMAIN,
     EVENT_CAR,
     EVENT_PUSH,
+    EVENT_VISITOR,
+    KIND_HOUSEHOLD,
+    KIND_VISITOR,
     FIREBASE,
     LOGGER,
     MAX_POLL_PAGES,
     POLL_PAGE_SIZE,
 )
 from .describe import car_description
+from .feed import Feed
 
 
 class FetchError(Exception):
@@ -59,42 +64,24 @@ class HappyParkingCoordinator:
         self.enable_notify = bool(
             data.get(CONF_ENABLE_NOTIFY, DEFAULT_ENABLE_NOTIFY)
         )
+        self.enable_visitors = bool(
+            data.get(CONF_ENABLE_VISITORS, DEFAULT_ENABLE_VISITORS)
+        )
         if not self.enable_push and self.scan_interval <= 0:
             # Both engines off would mean no events at all; polling is the
             # one that has to stay.
             self.scan_interval = DEFAULT_SCAN_INTERVAL
         self.creds_path = hass.config.path(f".happyparking_fcm_{entry.entry_id}.json")
 
-        self._seen: set[str] = set()
-        # Visits that have entered but not yet exited. Their rows sink down the
-        # list as newer visits arrive, so a sweep must page deep enough to reach
-        # them or their exit is never noticed.
-        # visitCarId -> entry timestamp, so a sweep knows how far back
-        # it has to read before every open visit is accounted for.
-        self._open: dict[int, str] = {}
-        # Until history has been read once, everything on the server looks new.
-        # Emitting then would replay old events as fresh notifications.
-        self._primed = False
-        self._listeners: set[Callable[[str, dict], None]] = set()
+        self.feeds: list[Feed] = [
+            Feed(KIND_HOUSEHOLD, EVENT_CAR, "HappyParking")
+        ]
+        if self.enable_visitors:
+            self.feeds.append(Feed(KIND_VISITOR, EVENT_VISITOR, "HappyParking visitor"))
         self._tasks: list[asyncio.Task] = []
         self._fcm = None
         self._push_token: str | None = None
-        # The event entity tells us its id once it exists. Naming it on the
-        # bus event is what puts the described logbook row - the one with the
-        # plate on it - into that entity's own Activity list, which is where
-        # a person actually looks.
-        self.logbook_entity_id: str | None = None
         self._session: aiohttp.ClientSession | None = None
-
-    # -- listener registration (used by the event entity) --------------------
-    @callback
-    def add_listener(self, cb: Callable[[str, dict], None]) -> Callable[[], None]:
-        self._listeners.add(cb)
-
-        def _remove() -> None:
-            self._listeners.discard(cb)
-
-        return _remove
 
     # -- http ----------------------------------------------------------------
     async def _get_json(self, url: str) -> dict | list:
@@ -108,9 +95,9 @@ class HappyParkingCoordinator:
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
             raise FetchError(f"GET {url} failed: {err}") from err
 
-    async def _get_page(self, page: int) -> list[dict]:
+    async def _get_page(self, feed: Feed, page: int) -> list[dict]:
         url = (
-            f"{self.base}/local/api/visitcar/household/appuser/{self.user_id}"
+            f"{self.base}/local/api/visitcar/{feed.kind}/appuser/{self.user_id}"
             f"/recent?limit={POLL_PAGE_SIZE}&page={page}"
         )
         body = await self._get_json(url)
@@ -215,33 +202,45 @@ class HappyParkingCoordinator:
             out.append((f"{vid}:exited", "exited", {**base, "event_time": exit_time}))
         return out
 
-    def _process(self, records: list[dict], source: str, emit: bool = True) -> None:
+    def _process(
+        self, feed: Feed, records: list[dict], source: str, emit: bool = True
+    ) -> None:
         for rec in reversed(records):  # oldest first so entered precedes exited
             vid = rec.get("visitCarId")
             for key, state, data in self._record_to_events(rec):
-                if key not in self._seen:
-                    self._seen.add(key)
+                if key not in feed.seen:
+                    feed.seen.add(key)
                     if emit:
-                        self._dispatch(state, data, source)
+                        self._dispatch(feed, state, data, source)
                 if state == "entered":
-                    self._open[vid] = rec.get("entvhclDt") or ""
+                    feed.open[vid] = rec.get("entvhclDt") or ""
                 else:
-                    self._open.pop(vid, None)
+                    feed.open.pop(vid, None)
 
     @callback
-    def _dispatch(self, state: str, data: dict, source: str) -> None:
-        LOGGER.info("car %s %s (via %s)", data.get("car_no"), state, source)
-        payload = {"state": state, "source": source, **data}
-        if self.logbook_entity_id:
-            payload["entity_id"] = self.logbook_entity_id
-        self.hass.bus.async_fire(EVENT_CAR, payload)
-        for cb in list(self._listeners):
-            cb(state, {"source": source, **data})
+    def _dispatch(self, feed: Feed, state: str, data: dict, source: str) -> None:
+        LOGGER.info(
+            "%s car %s %s (via %s)", feed.kind, data.get("car_no"), state, source
+        )
+        payload = {
+            "state": state,
+            "source": source,
+            # Household and visitor already have their own event type; carrying
+            # the kind as well means one automation can listen to both and still
+            # tell them apart.
+            "kind": feed.kind,
+            **data,
+        }
+        if feed.logbook_entity_id:
+            payload["entity_id"] = feed.logbook_entity_id
+        self.hass.bus.async_fire(feed.event_type, payload)
+        for cb in list(feed.listeners):
+            cb(state, {"source": source, "kind": feed.kind, **data})
         if self.enable_notify:
-            self._notify(state, data)
+            self._notify(feed, state, data)
 
     @callback
-    def _notify(self, state: str, data: dict) -> None:
+    def _notify(self, feed: Feed, state: str, data: dict) -> None:
         """Raise a persistent notification for one car movement.
 
         Turning this off must not cost the events themselves: the automations
@@ -258,15 +257,19 @@ class HappyParkingCoordinator:
         persistent_notification.async_create(
             self.hass,
             message,
-            title="HappyParking",
+            title=feed.title,
             # One notification per visit and direction, so a re-read of the
             # same row replaces its notification instead of stacking a second.
-            notification_id=f"{DOMAIN}_{data.get('visit_car_id')}_{state}",
+            # The kind is in the id because the two lists are numbered by the
+            # same server counter and could otherwise collide.
+            notification_id=f"{DOMAIN}_{feed.kind}_{data.get('visit_car_id')}_{state}",
         )
 
     # -- engines -------------------------------------------------------------
-    async def _sweep(self, source: str, emit: bool = True, deep: bool = False) -> None:
-        """Read the visit list, deep enough to see exits on long-parked cars.
+    async def _sweep(
+        self, feed: Feed, source: str, emit: bool = True, deep: bool = False
+    ) -> None:
+        """Read one visit list, deep enough to see exits on long-parked cars.
 
         A poll stops as soon as every visit still awaiting an exit has been
         seen. A deep sweep reads the whole window regardless, which is what
@@ -275,7 +278,7 @@ class HappyParkingCoordinator:
         """
         records: list[dict] = []
         found: set[int] = set()
-        awaiting = dict(self._open)
+        awaiting = dict(feed.open)
         # The list is ordered by entry time, so nothing still open can sit below
         # the oldest open entry. Reading past it means the rest are gone from the
         # window, not further down - which is what stops a vanished visit from
@@ -283,7 +286,7 @@ class HappyParkingCoordinator:
         floor = min(awaiting.values()) if awaiting else None
         pages = 0
         for page in range(1, MAX_POLL_PAGES + 1):
-            rows = await self._get_page(page)
+            rows = await self._get_page(feed, page)
             if not rows:
                 break
             pages = page
@@ -297,20 +300,28 @@ class HappyParkingCoordinator:
                 break
         if missing := set(awaiting) - found:
             LOGGER.warning(
-                "%d visit(s) awaiting an exit are no longer in the list after %s "
-                "page(s); giving up on them: %s",
+                "%d %s visit(s) awaiting an exit are no longer in the list after "
+                "%s page(s); giving up on them: %s",
                 len(missing),
+                feed.kind,
                 pages,
                 sorted(missing),
             )
             for vid in missing:
-                self._open.pop(vid, None)
-        LOGGER.debug("%s sweep read %d page(s), %d record(s)", source, pages, len(records))
-        self._process(records, source, emit=emit)
+                feed.open.pop(vid, None)
+        LOGGER.debug(
+            "%s %s sweep read %d page(s), %d record(s)",
+            feed.kind,
+            source,
+            pages,
+            len(records),
+        )
+        self._process(feed, records, source, emit=emit)
 
     async def async_start(self) -> None:
         self._session = aiohttp.ClientSession()
-        await self._async_prime()
+        for feed in self.feeds:
+            await self._async_prime(feed)
         self._tasks.append(self.entry.async_create_background_task(
             self.hass, self._run_poll(), "happyparking_poll"))
         if self.enable_push:
@@ -319,39 +330,51 @@ class HappyParkingCoordinator:
         else:
             LOGGER.info("push engine disabled; polling every %ss", self.scan_interval)
 
-    async def _async_prime(self) -> bool:
-        """Learn the existing history without notifying about any of it."""
+    async def _async_prime(self, feed: Feed) -> bool:
+        """Learn one list's existing history without notifying about any of it."""
         try:
-            await self._sweep("prime", emit=False, deep=True)
+            await self._sweep(feed, "prime", emit=False, deep=True)
         except FetchError as err:
             # Staying unprimed is the safe failure: the next attempt tries again
             # rather than announcing months of history as if it just happened.
-            LOGGER.warning("could not read history, so not notifying yet: %s", err)
+            LOGGER.warning(
+                "could not read %s history, so not notifying yet: %s", feed.kind, err
+            )
             return False
-        self._primed = True
+        feed.primed = True
         LOGGER.info(
-            "primed with %d known event(s); %d car(s) currently in",
-            len(self._seen),
-            len(self._open),
+            "%s primed with %d known event(s); %d car(s) currently in",
+            feed.kind,
+            len(feed.seen),
+            len(feed.open),
         )
         return True
+
+    async def _sweep_all(self, source: str) -> None:
+        """Sweep every list, priming any that has not managed it yet.
+
+        One list failing must not stop the other: a visitor list that is empty
+        or unreachable at this site should cost nothing but a log line.
+        """
+        for feed in self.feeds:
+            try:
+                if not feed.primed:
+                    await self._async_prime(feed)
+                    continue
+                await self._sweep(feed, source)
+            except asyncio.CancelledError:
+                raise
+            except FetchError as err:
+                LOGGER.warning("%s %s failed: %s", feed.kind, source, err)
+            except Exception as err:  # noqa: BLE001
+                LOGGER.exception("%s %s error: %s", feed.kind, source, err)
 
     async def _run_poll(self) -> None:
         if self.scan_interval <= 0:
             return
         while True:
             await asyncio.sleep(self.scan_interval)
-            try:
-                if not self._primed:
-                    await self._async_prime()
-                    continue
-                await self._sweep("poll")
-            except asyncio.CancelledError:
-                raise
-            except FetchError as err:
-                LOGGER.warning("poll failed: %s", err)
-            except Exception as err:  # noqa: BLE001
-                LOGGER.exception("poll error: %s", err)
+            await self._sweep_all("poll")
 
     async def _run_push(self) -> None:
         try:
@@ -408,15 +431,9 @@ class HappyParkingCoordinator:
         self.hass.async_create_task(self._refresh_after_push())
 
     async def _refresh_after_push(self) -> None:
-        try:
-            if self._primed:
-                await self._sweep("push")
-            else:
-                await self._async_prime()
-        except FetchError as err:
-            LOGGER.warning("could not read records after push: %s", err)
-        except Exception as err:  # noqa: BLE001
-            LOGGER.exception("failed handling push: %s", err)
+        # The push says only that something changed, not which list, so both
+        # are read.
+        await self._sweep_all("push")
 
     def _save_creds(self, creds) -> None:
         with open(self.creds_path, "w") as fh:

@@ -58,8 +58,9 @@
           "device_id": "이 브리지의 기기 ID",
           "scan_interval": "폴링 주기(초, 0 = 푸시만 사용)",
           "verify_ssl": "서버 TLS 인증서 검증",
-          "enable_push": "푸시 토큰 등록 (해제하면 서버 푸시 목록에 등록하지 않음)",
-          "enable_notify": "차량 입·출차 시 알림 표시"
+          "enable_push": "푸시 토큰 등록 (베타, 단지에 따라 동작하지 않을 수 있음. 폴링이 모든 이벤트를 전달합니다)",
+          "enable_notify": "차량 입·출차 시 알림 표시",
+          "enable_visitors": "방문 차량도 함께 확인"
         }
       }
     }
