@@ -9,7 +9,7 @@ BN Industry (비엔인더스트리, `com.bnids.happyparking`).
 
 There is no official public API, so this talks to your building's own parking
 server the same way the phone app does. You sign in during setup and everything
-else is discovered from that login — nothing is hard-coded.
+else is discovered from that login. Nothing is hard-coded.
 
 > Every section below appears in English first and in Korean afterwards.
 > 아래 모든 항목은 영어 다음에 한국어가 이어집니다.
@@ -18,9 +18,9 @@ else is discovered from that login — nothing is hard-coded.
 
 Two engines, de-duplicated (no double alerts):
 
-1. **FCM push** — registers a push token with the parking server and receives the
+1. **FCM push** registers a push token with the parking server and receives the
    same real-time push the phone app gets. Instant.
-2. **Poll fallback** (default every 120 s) — reads the household in/out list
+2. **Poll fallback** (default every 120 s) reads the household in/out list
    directly. A reliable safety net; set the interval to `0` to go push-only once
    you've confirmed push delivery.
 
@@ -37,7 +37,7 @@ Each car event is exposed two ways:
 
 Both carry a `source` of `push` or `poll`, so you can see which engine delivered
 any given event. `exit_gate` and `exit_time` are `null` until the car actually
-leaves — the server seeds the exit time with the entry time, so it cannot be
+leaves. The server seeds the exit time with the entry time, so it cannot be
 trusted on its own.
 
 ## Install (HACS)
@@ -55,7 +55,7 @@ trusted on its own.
 ## Setup
 
 Adding the integration sends you to **HappyParking's own login page**
-(`app.hparking.co.kr/happyparking/login`) — the same one the app uses, with both
+(`app.hparking.co.kr/happyparking/login`), the same one the app uses, with both
 **Kakao** and **HappyParking id** sign-in. Sign in there as you normally would,
 then copy your login token back into Home Assistant:
 
@@ -64,8 +64,8 @@ then copy your login token back into Home Assistant:
 
 That token is a signed blob that already contains your building's parking server
 address, your app user id and your site code, so nothing else has to be typed in.
-The site code is its own identifier — it is not the server's subdomain — so it is
-only ever read from the login, never guessed.
+The site code is its own identifier, not the server's subdomain, so it is only
+ever read from the login, never guessed.
 
 The token has to be copied by hand because HappyParking's login only ever returns
 to HappyParking's own site, never to your Home Assistant.
@@ -85,8 +85,8 @@ Afterwards, **Configure** on the integration exposes:
 | Show a notification for each car entering or leaving | on by default; uncheck for events without the notifications |
 
 Turning the notifications off does not cost you the events. The event entity and
-the `happyparking_car` bus event fire either way, so automations built on them —
-lighting the hallway on arrival, say — keep working with a silent notification
+the `happyparking_car` bus event fire either way, so automations built on them
+(lighting the hallway on arrival, say) keep working with a silent notification
 drawer.
 
 ## In the logbook
@@ -96,7 +96,7 @@ A car movement is written to the logbook by plate:
 > **HappyParking** 00가0000 entered at Main gate
 
 An event entity's own state is only ever the event type, so its row can say no
-more than `entered` — which car it was, the one thing worth recording, is
+more than `entered`. Which car it was, the one thing worth recording, is
 missing. The movement is therefore described from the `happyparking_car` bus
 event, where the plate is.
 
@@ -107,7 +107,7 @@ take the described row down with the bare one, leaving the logbook emptier than
 before rather than tidier.
 
 The bare `entered` / `exited` row is still written alongside it. To drop it and
-leave only the row with the plate, keep the entity out of the recorder — at the
+leave only the row with the plate, keep the entity out of the recorder, at the
 cost of the entity's history graph:
 
 ```yaml
@@ -135,7 +135,7 @@ actions:
         {{ trigger.event.data.car_no }}
         {{ '들어왔어요 (entered)' if trigger.event.data.state == 'entered'
            else '나갔어요 (exited)' }}
-        — {{ trigger.event.data.entry_gate
+        - {{ trigger.event.data.entry_gate
               if trigger.event.data.state == 'entered'
               else trigger.event.data.exit_gate }}
 ```
@@ -158,7 +158,7 @@ failure looks exactly like a quiet car park. Two ways to tell:
 ## Notes
 
 - To also catch VISITOR cars, the server exposes
-  `/local/api/visitcar/visitor/appuser/{user_id}/recent` (same shape) — this
+  `/local/api/visitcar/visitor/appuser/{user_id}/recent` (same shape). This
   integration handles household cars only.
 - Push routing to a second (non-phone) token can vary by site; the poll engine
   covers you regardless.
@@ -183,9 +183,9 @@ failure looks exactly like a quiet car park. Two ways to tell:
 
 두 개의 엔진이 함께 돌고, 중복은 제거됩니다(알림이 두 번 오지 않습니다).
 
-1. **FCM 푸시** — 주차 서버에 푸시 토큰을 등록하고, 휴대폰 앱이 받는 것과 같은
+1. **FCM 푸시**: 주차 서버에 푸시 토큰을 등록하고, 휴대폰 앱이 받는 것과 같은
    실시간 푸시를 받습니다. 즉시 도착합니다.
-2. **폴링(기본 120초)** — 세대 차량 입·출차 목록을 직접 읽는 안전장치입니다.
+2. **폴링(기본 120초)**: 세대 차량 입·출차 목록을 직접 읽는 안전장치입니다.
    푸시가 확실히 도착하는 것을 확인했다면 주기를 `0`으로 두어 푸시 전용으로 쓸 수
    있습니다.
 
@@ -196,9 +196,9 @@ failure looks exactly like a quiet car park. Two ways to tell:
 
 차량 이벤트는 두 가지 형태로 제공됩니다.
 
-- **이벤트 엔티티** (`event.happyparking_car_in_out`) — `entered` / `exited`를
+- **이벤트 엔티티** (`event.happyparking_car_in_out`): `entered` / `exited`를
   발생시키며 차량 정보를 속성으로 담습니다.
-- **버스 이벤트** `happyparking_car` — 기존 방식의 자동화에 사용합니다.
+- **버스 이벤트** `happyparking_car`: 기존 방식의 자동화에 사용합니다.
 
 두 가지 모두 `source` 값으로 `push` 또는 `poll`을 담고 있어, 어느 엔진이 해당
 이벤트를 전달했는지 알 수 있습니다. `exit_gate`와 `exit_time`은 차가 실제로 나가기
@@ -296,7 +296,7 @@ actions:
         {{ trigger.event.data.car_no }}
         {{ '들어왔어요 (entered)' if trigger.event.data.state == 'entered'
            else '나갔어요 (exited)' }}
-        — {{ trigger.event.data.entry_gate
+        - {{ trigger.event.data.entry_gate
               if trigger.event.data.state == 'entered'
               else trigger.event.data.exit_gate }}
 ```

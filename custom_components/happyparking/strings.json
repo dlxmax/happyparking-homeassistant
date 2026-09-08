@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Sign in to HappyParking",
-        "description": "### [→ Open the HappyParking login page]({login_url})\n\nSign in there exactly as you always do — **Kakao** or your **HappyParking id**.\n\nOnce you are signed in, copy your login token out of that page and paste it below:\n\n1. Press **F12** to open the browser's developer tools.\n2. Go to **Application** → **Local Storage** → `https://app.hparking.co.kr`.\n3. Copy the value of **`token`** (a long string of letters and numbers).\n\nYour building's parking server, your app user id and your site code are all read out of that token, so there is nothing else to fill in. The token is used once, here, and is not sent anywhere but your own parking server.\n\n*If your login sent you back to an address containing the token, you can paste that whole address instead.*\n\n*No browser to hand?* Leave the box empty and submit to sign in another way.",
+        "description": "### [→ Open the HappyParking login page]({login_url})\n\nSign in there exactly as you always do, with **Kakao** or your **HappyParking id**.\n\nOnce you are signed in, copy your login token out of that page and paste it below:\n\n1. Press **F12** to open the browser's developer tools.\n2. Go to **Application** → **Local Storage** → `https://app.hparking.co.kr`.\n3. Copy the value of **`token`** (a long string of letters and numbers).\n\nYour building's parking server, your app user id and your site code are all read out of that token, so there is nothing else to fill in. The token is used once, here, and is not sent anywhere but your own parking server.\n\n*If your login sent you back to an address containing the token, you can paste that whole address instead.*\n\n*No browser to hand?* Leave the box empty and submit to sign in another way.",
         "data": {
           "login_token": "Login token"
         },
@@ -40,7 +40,7 @@
     "error": {
       "invalid_url": "The base URL must start with http:// or https://",
       "invalid_login_token": "That does not look like a HappyParking login token. Copy the whole value of `token` from Local Storage.",
-      "invalid_token": "The login token could not be read. It may have been truncated — copy the whole value.",
+      "invalid_token": "The login token could not be read. It may have been truncated. Copy the whole value.",
       "login_failed": "The login did not succeed. Please try again.",
       "kakao_not_registered": "That Kakao account is not registered with HappyParking.",
       "no_server": "The login did not include a parking server address for your building.",

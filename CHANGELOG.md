@@ -29,7 +29,7 @@ Every entry appears in English first and in Korean afterwards.
 **Notes**
 
 - Do **not** hide the plain `entered` / `exited` row with a `logbook: exclude:`
-  on this entity — because the described row names the same entity, excluding it
+  on this entity. Because the described row names the same entity, excluding it
   removes both and leaves the logbook emptier than before. Use a `recorder:`
   exclude instead, at the cost of the entity's history graph. See the README.
 - This release also carries work that had only ever existed on one installation:
