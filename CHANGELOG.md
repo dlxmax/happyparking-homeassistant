@@ -20,7 +20,7 @@ Every entry appears in Korean first and in English afterwards.
 
 **변경**
 
-- README를 더 간결하고 알기 쉽게 개편하고 설치 버튼을 추가했습니다. 아울러 푸시
+- README를 더 간결하고 알기 쉽게 개편하고 설치 버튼을 넣었습니다. 아울러 푸시
   기능이 정식 버전으로 전환됨에 따라 옵션 이름에서 '베타' 표기를 제거했습니다.
 - **차량 번호가 담긴 로그북 줄이 HappyParking 기기 페이지에도 나타납니다.** 이벤트
   엔티티가 이제 하나의 기기에 속하고, 버스 이벤트에 `device_id`가 담깁니다.
@@ -62,7 +62,7 @@ Every entry appears in Korean first and in English afterwards.
 
 **Changed**
 
-- The README is rewritten, shorter and plainer, with install buttons. Push is
+- The README is rewritten, shorter and plainer, with an install button. Push is
   no longer beta, and the option labels no longer say so.
 - **The logbook rows with the plate now also show on the HappyParking device
   page.** The event entities now belong to one device, and the bus events carry
