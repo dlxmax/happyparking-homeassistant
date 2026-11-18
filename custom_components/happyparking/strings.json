@@ -68,7 +68,7 @@
         "title": "HappyParking options",
         "data": {
           "device_id": "Device ID for this bridge",
-          "scan_interval": "Check interval while push is down (seconds, 0 = push only)",
+          "scan_interval": "Check interval (seconds, 0 = push only)",
           "verify_ssl": "Verify the server's TLS certificate",
           "enable_push": "Receive instant push alerts",
           "enable_notify": "Show a notification for each car",

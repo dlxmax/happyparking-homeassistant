@@ -46,7 +46,6 @@ from .discovery import DiscoveryError, cloud_token_for, decode_token, local_toke
 from .feed import Feed
 
 
-SAFETY_POLL_SECONDS = 1800  # poll interval while push is connected
 POLL_TICK_SECONDS = 30
 WATCHDOG_SECONDS = 60
 WATCHDOG_DOWN_CHECKS = 5  # minutes a reconnect may take before a rebuild
@@ -486,14 +485,9 @@ class HappyParkingCoordinator:
         last = time.monotonic()
         while True:
             await asyncio.sleep(POLL_TICK_SECONDS)
-            # The configured interval applies while push is down; while it is
-            # up, a slow sweep is enough to catch anything a push missed.
-            interval = (
-                max(self.scan_interval, SAFETY_POLL_SECONDS)
-                if self.push_healthy
-                else self.scan_interval
-            )
-            if time.monotonic() - last >= interval:
+            # Polls at the configured interval even while push is up: the
+            # server does not push every event.
+            if time.monotonic() - last >= self.scan_interval:
                 last = time.monotonic()
                 await self._sweep_all("poll")
 
@@ -580,7 +574,7 @@ class HappyParkingCoordinator:
             except asyncio.CancelledError:
                 raise
             except Exception as err:  # noqa: BLE001
-                LOGGER.exception("push engine error (polling sped up): %s", err)
+                LOGGER.exception("push engine error (polling continues): %s", err)
             self.push_healthy = False
             if self._fcm is not None:
                 try:
@@ -614,18 +608,15 @@ class HappyParkingCoordinator:
             listening = bool(fcm and fcm.do_listen and tasks and not tasks[0].done())
             if listening and fcm.is_started():
                 if not self.push_healthy:
-                    LOGGER.info(
-                        "push listener connected; polling only every %ss as a safety net",
-                        max(self.scan_interval, SAFETY_POLL_SECONDS),
-                    )
+                    LOGGER.info("push listener connected")
                 self.push_healthy = was_healthy = True
                 down_checks = 0
                 continue
             down_checks += 1
             if self.push_healthy:
                 LOGGER.warning(
-                    "push listener is not connected (state %s); polling every %ss until it is",
-                    getattr(fcm, "run_state", None), self.scan_interval,
+                    "push listener is not connected (state %s)",
+                    getattr(fcm, "run_state", None),
                 )
             self.push_healthy = False
             # A dead listen task never comes back; a reconnect in progress

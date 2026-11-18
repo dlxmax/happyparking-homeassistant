@@ -68,7 +68,7 @@
         "title": "해피파킹 옵션",
         "data": {
           "device_id": "이 브리지의 기기 ID",
-          "scan_interval": "푸시가 끊겼을 때 확인 주기(초, 0 = 푸시만 사용)",
+          "scan_interval": "확인 주기(초, 0 = 푸시만 사용)",
           "verify_ssl": "서버 TLS 인증서 검증",
           "enable_push": "실시간 푸시 알림 받기",
           "enable_notify": "차량 입·출차 시 알림 표시",

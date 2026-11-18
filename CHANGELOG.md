@@ -37,8 +37,6 @@ Every entry appears in Korean first and in English afterwards.
   기기의 **관련 항목** 탭에 표시됩니다.
 - **푸시 수신 감시.** 푸시 수신이 멈추면 1분 안에 감지하여 경고를 남기고 다시
   연결합니다. 이전에는 수신이 조용히 멈춰도 알 수 없었습니다.
-- **푸시가 연결되어 있으면 폴링은 30분마다만** 수행합니다. 연결이 끊기면 설정한
-  주기(기본 120초)로 바로 돌아갑니다.
 - 카카오 아이디 또는 해피파킹 아이디·비밀번호로 설정하면 갱신용으로 저장됩니다.
   로그인 토큰만 붙여 넣어 설정한 기존 항목은 재인증 카드로 이 정보를 요청합니다.
   폴링에는 영향이 없습니다.
@@ -81,8 +79,6 @@ Every entry appears in Korean first and in English afterwards.
 - **A watchdog on push.** If the push listener stops, Home Assistant
   notices within a minute, logs a warning and reconnects it. Before, it could
   stop silently.
-- **While push is connected, polling drops to every 30 minutes.** It returns
-  to your interval (default 120 s) as soon as push is down.
 - Setting up with a Kakao id, or a HappyParking id and password, now keeps it
   for renewing the login. Existing entries set up from a pasted token are asked
   for one through a re-authentication card. Polling is unaffected.

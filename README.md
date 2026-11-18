@@ -61,7 +61,7 @@ actions:
 | 차량 입·출차 시 알림 표시 | 켜짐 | 꺼도 트리거는 동작합니다. |
 | 방문 차량도 함께 확인 | 켜짐 | |
 | 실시간 푸시 알림 받기 | 켜짐 | 끄면 주기적으로만 확인합니다. |
-| 푸시가 끊겼을 때 확인 주기 | 120초 | 푸시가 연결되어 있으면 30분마다 확인합니다. |
+| 확인 주기 | 120초 | 푸시가 오지 않는 이벤트도 있어 푸시와 함께 계속 확인합니다. |
 
 <details>
 <summary><b>고급</b></summary>
@@ -148,7 +148,7 @@ actions:
 | Show a notification for each car | On | Triggers work either way. |
 | Also watch visitor cars | On | |
 | Receive instant push alerts | On | Off means checking on a timer only. |
-| Check interval while push is down | 120 s | Every 30 minutes while push is up. |
+| Check interval | 120 s | Runs alongside push, which misses some events. |
 
 <details>
 <summary><b>Advanced</b></summary>
