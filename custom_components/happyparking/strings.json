@@ -35,6 +35,15 @@
           "password": "HappyParking id and password",
           "manual": "Enter server details myself"
         }
+      },
+      "reauth_confirm": {
+        "title": "Sign in once more for push",
+        "description": "### [→ Open the HappyParking login page]({login_url})\n\nFor push, Home Assistant has to be able to sign itself in again every day. It needs the same thing the app keeps saved on your phone, entered once.\n\n**If you sign in with Kakao**\n\n1. Open the link above in Chrome or Edge on a computer and sign in with Kakao, as you did when you first set this up.\n2. Once you are signed in, press **F12**. A developer tools panel opens beside or below the page.\n3. Click the **Application** tab at the top of that panel. If you can't see it, click **»** to find it.\n4. In the list on the left, expand **Local Storage** and click `https://app.hparking.co.kr`.\n5. In the table on the right, find the row named **`providerUserId`** and copy its value (a long number).\n6. Paste it into **Kakao id** below and submit. Leave the other two boxes empty.\n\n**If you don't use Kakao**, fill in only **HappyParking id** and **Password**.\n\nThis is stored only in Home Assistant and sent only to HappyParking. You won't be asked again.",
+        "data": {
+          "kakao_id": "Kakao id",
+          "login_id": "HappyParking id",
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -44,10 +53,13 @@
       "login_failed": "The login did not succeed. Please try again.",
       "kakao_not_registered": "That Kakao account is not registered with HappyParking.",
       "no_server": "The login did not include a parking server address for your building.",
-      "cannot_connect": "Could not reach the HappyParking service."
+      "cannot_connect": "Could not reach the HappyParking service.",
+      "no_credentials": "Fill in a Kakao id, or both a HappyParking id and a password.",
+      "wrong_account": "That sign-in belongs to a different HappyParking account than this entry."
     },
     "abort": {
-      "already_configured": "This account is already configured."
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "Signed in. Push will use this from now on."
     }
   },
   "options": {
@@ -56,10 +68,10 @@
         "title": "HappyParking options",
         "data": {
           "device_id": "Device ID for this bridge",
-          "scan_interval": "Poll fallback seconds (0 = push only)",
+          "scan_interval": "Check interval while push is down (seconds, 0 = push only)",
           "verify_ssl": "Verify the server's TLS certificate",
-          "enable_push": "Register a push token (BETA, may not work at your site; polling still delivers every event)",
-          "enable_notify": "Show a notification for each car entering or leaving",
+          "enable_push": "Receive instant push alerts",
+          "enable_notify": "Show a notification for each car",
           "enable_visitors": "Also watch visitor cars"
         }
       }
@@ -75,6 +87,17 @@
           "description": "Text to include in the test notification."
         }
       }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "car_entered": "Car entered",
+      "car_exited": "Car exited",
+      "visitor_entered": "Visitor entered",
+      "visitor_exited": "Visitor exited"
+    },
+    "extra_fields": {
+      "plate": "Only these plates (optional: whole plate or its last digits, comma-separated)"
     }
   }
 }

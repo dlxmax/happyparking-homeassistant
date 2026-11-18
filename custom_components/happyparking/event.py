@@ -9,9 +9,10 @@ from __future__ import annotations
 from homeassistant.components.event import EventEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, EVENT_TYPES, KIND_HOUSEHOLD
+from .const import DOMAIN, EVENT_TYPES, KIND_HOUSEHOLD, LOGIN_URL
 from .coordinator import HappyParkingCoordinator
 from .feed import Feed
 
@@ -51,11 +52,20 @@ class HappyParkingCarEvent(EventEntity):
             if feed.kind == KIND_HOUSEHOLD
             else f"{entry.entry_id}_{feed.kind}"
         )
+        # One device per account. Its page lists the movements by plate,
+        # because the bus events name the device (not the entity).
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title,
+            # Not made by HappyParking, so no manufacturer is claimed. None
+            # (not omitted) also clears the one older versions stored.
+            manufacturer=None,
+            model="Unofficial HappyParking bridge",
+            configuration_url=LOGIN_URL,
+            entry_type=DeviceEntryType.SERVICE,
+        )
 
     async def async_added_to_hass(self) -> None:
-        # So the coordinator can name this entity on the bus event, which is
-        # what lands the plate in this entity's own Activity list.
-        self._feed.logbook_entity_id = self.entity_id
         self.async_on_remove(self._feed.add_listener(self._handle))
 
     @callback

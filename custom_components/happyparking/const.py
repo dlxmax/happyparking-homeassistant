@@ -20,6 +20,13 @@ CONF_VERIFY_SSL = "verify_ssl"
 CONF_ENABLE_PUSH = "enable_push"
 CONF_ENABLE_NOTIFY = "enable_notify"
 CONF_ENABLE_VISITORS = "enable_visitors"
+# How the bridge signs in again on its own. The parking server's push
+# endpoints need a login that lasts 24 hours, and the app renews it by
+# signing in to the cloud afresh, so one of these has to be kept.
+CONF_KAKAO_ID = "kakao_id"
+CONF_LOGIN_ID = "login_id"
+CONF_PASSWORD = "password"
+CREDENTIAL_KEYS = (CONF_KAKAO_ID, CONF_LOGIN_ID, CONF_PASSWORD)
 
 # HappyParking cloud (account/discovery) service
 CLOUD_URL = "https://app.hparking.co.kr/cloud"

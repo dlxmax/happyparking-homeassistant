@@ -2,119 +2,94 @@
 
 **한국어** · [English](#happyparking-for-home-assistant)
 
-비엔인더스트리의 **해피파킹**(`com.bnids.happyparking`) 시스템을 사용하는 아파트에서,
-등록된 **세대 차량**과 **방문 차량**이 주차장에 들어오거나 나가는 순간 알려주는
-[홈어시스턴트](https://www.home-assistant.io/) 커스텀 통합구성요소입니다.
+우리 차나 손님 차가 아파트 주차장에 들어오고 나가는 순간을 바로 알 수 있고,
+홈어시스턴트가 그에 맞춰 움직이게 할 수 있습니다. 해피파킹 앱을 쓰는 아파트에서
+사용할 수 있습니다.
 
-공식 공개 API가 없기 때문에, 휴대폰 앱과 똑같은 방식으로 우리 아파트의 주차 서버와
-직접 통신합니다. 설정할 때 한 번 로그인하면 나머지 정보는 모두 그 로그인에서
-읽어옵니다. 하드코딩된 값은 없습니다.
+*비공식 통합구성요소입니다. 해피파킹이나 비엔인더스트리에서 만들거나 지원하지 않습니다.*
 
-> 아래 모든 항목은 한국어 다음에 영어가 이어집니다.
-> Every section below appears in Korean first and in English afterwards.
+## 할 수 있는 일
 
-## 동작 방식
+- 차가 드나들 때마다 차량 번호와 게이트가 담긴 **알림**을 받습니다.
+- **자동화 트리거**: *세대 차량 입차*, *세대 차량 출차*, *방문 차량 입차*,
+  *방문 차량 출차*. 특정 차량에만 반응하게 할 수도 있습니다. 집에 오면 조명을
+  켜거나, 가족이 도착하면 전기요를 켜는 식입니다.
+- 어떤 차인지 알 수 있는 **로그북**: *12가3456 entered at Main gate*.
+- 휴대폰 앱과 같은 푸시로 **즉시** 알려주고, 놓치는 일이 없도록 주기적으로도
+  확인합니다.
 
-두 개의 엔진이 함께 돌고, 중복은 제거됩니다(알림이 두 번 오지 않습니다).
+## 설치
 
-1. **폴링(기본 120초)**: 입·출차 목록을 직접 읽습니다. 항상 동작하는 기본 엔진입니다.
-2. **FCM 푸시 (베타)**: 주차 서버에 푸시 토큰을 등록해 휴대폰 앱이 받는 것과 같은
-   실시간 푸시를 받습니다. 도착하면 즉시 알 수 있지만, **단지에 따라 동작하지 않을 수
-   있습니다**. 아래 “푸시에 대하여”를 참고하세요.
+1. [![Marketplace에서 열기](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=dlxmax&repository=happyparking-homeassistant&category=integration)
 
-방문 목록은 **입차 시각** 순으로 정렬되고 출차는 원래 행에 덮어써집니다. 그래서
-다른 차가 오가는 동안 계속 주차되어 있던 차의 행은 목록 아래로 밀려납니다. 따라서
-매번 첫 페이지만 믿지 않고, 아직 출차되지 않은 방문이 모두 확인될 때까지 페이지를
-넘겨가며 읽습니다.
+   버튼을 누르면 홈어시스턴트의 **Marketplace**에 HappyParking이 열립니다.
+   설치한 뒤 홈어시스턴트를 재시작하세요.
+2. [![통합구성요소 추가](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=happyparking)
 
-## 세대 차량과 방문 차량
+   이 버튼으로 통합구성요소를 추가하세요.
 
-두 목록은 서버에서 경로만 다를 뿐 형식이 같지만, 홈어시스턴트에서는 **완전히 분리해서**
-다룹니다. 손님이 오는 것과 우리 차가 들어오는 것은 다른 일이기 때문입니다.
+버튼이 동작하지 않으면 Marketplace에 이 저장소
+(`https://github.com/dlxmax/happyparking-homeassistant`)를 **통합구성요소**
+유형의 사용자 지정 저장소로 추가하세요.
 
-| | 세대 차량 | 방문 차량 |
+## 로그인
+
+설정 화면에 해피파킹 로그인 페이지 링크가 나타납니다.
+
+1. 컴퓨터의 크롬이나 엣지에서 링크를 열고, 평소처럼 카카오나 해피파킹 아이디로
+   로그인하세요.
+2. **F12**를 누르고 **Application** → **Local Storage** →
+   `https://app.hparking.co.kr`에서 **`token`** 값을 복사하세요.
+3. 홈어시스턴트에 붙여 넣으세요. 아파트와 계정 정보는 여기서 읽어오므로 따로
+   입력할 것이 없습니다.
+
+컴퓨터가 없다면 칸을 비운 채 제출하세요. 해피파킹 아이디와 비밀번호로 로그인할 수
+있습니다.
+
+카카오로 로그인해 토큰을 붙여 넣었다면, 나중에 **재인증** 카드가 한 번 나타나
+카카오 아이디를 묻습니다. 푸시 알림을 계속 받는 데 필요하며, 찾는 방법은 카드에
+안내되어 있습니다.
+
+## 자동화
+
+자동화 편집기에서 **기기** → **HappyParking**을 고른 뒤 트리거를 선택하세요.
+특정 차량에만 반응하게 하려면 **특정 차량만** 칸에 차량 번호 전체(`12가3456`)나
+뒷자리(`3456`)를 입력하세요. 여러 대는 쉼표로 구분합니다.
+
+예시: 해가 진 뒤 우리 차가 들어오면 현관 조명을 켭니다.
+
+```yaml
+triggers:
+  - trigger: device
+    domain: happyparking
+    device_id: <HappyParking 기기>
+    type: car_entered
+    plate: "3456"
+conditions:
+  - condition: sun
+    after: sunset
+actions:
+  - action: light.turn_on
+    target:
+      entity_id: light.hallway
+```
+
+## 설정 옵션
+
+통합구성요소의 **구성**에서 바꿀 수 있습니다.
+
+| 옵션 | 기본값 | 설명 |
 |---|---|---|
-| 이벤트 엔티티 | `event.happyparking_car_in_out` | `event.happyparking_visitor_in_out` |
-| 버스 이벤트 | `happyparking_car` | `happyparking_visitor` |
-| 로그북 표기 | **HappyParking** | **HappyParking visitor** |
-| 알림 제목 | HappyParking | HappyParking visitor |
+| 차량 입·출차 시 알림 표시 | 켜짐 | 알림을 직접 보낸다면 끄세요. 트리거는 그대로 동작합니다. |
+| 방문 차량도 함께 확인 | 켜짐 | 세대 차량만 보려면 끄세요. |
+| 실시간 푸시 알림 받기 | 켜짐 | 끄면 주기적인 확인만으로 동작합니다. |
+| 푸시가 끊겼을 때 확인 주기 | 120초 | 푸시가 연결되지 않았을 때 확인하는 간격입니다. 연결되어 있으면 30분마다 확인합니다. |
 
-두 이벤트 모두 `kind` 값(`household` 또는 `visitor`)을 담고 있어서, 하나의 자동화로
-양쪽을 받아 구분할 수도 있습니다. 방문 차량 확인은 **구성**에서 끌 수 있으며, 끄면
-방문 차량 엔티티와 이벤트가 사라지고 폴링 요청도 절반으로 줄어듭니다.
+## 팁
 
-두 이벤트 모두 `source` 값으로 `push` 또는 `poll`을 담고 있어, 어느 엔진이 해당
-이벤트를 전달했는지 알 수 있습니다. `exit_gate`와 `exit_time`은 차가 실제로 나가기
-전까지 `null`입니다. 서버가 출차 시각을 입차 시각으로 미리 채워두기 때문에, 그 값만
-보고 판단할 수 없습니다.
-
-## 설치 (HACS)
-
-1. HACS → **⋮** → **사용자 지정 저장소**.
-2. `https://github.com/dlxmax/happyparking-homeassistant`를 **통합구성요소**
-   카테고리로 추가합니다.
-3. **HappyParking**을 설치한 뒤 **홈어시스턴트를 재시작**합니다.
-4. 설정 → 기기 및 서비스 → **통합구성요소 추가** → **HappyParking**을 선택하고
-   아래 방법으로 로그인합니다.
-
-(수동 설치: `custom_components/happyparking/` 폴더를 홈어시스턴트의
-`config/custom_components/`에 복사하고 재시작합니다.)
-
-## 설정
-
-통합구성요소를 추가하면 **해피파킹 자체 로그인 페이지**
-(`app.hparking.co.kr/happyparking/login`)로 안내합니다. 앱에서 쓰는 것과 같은
-페이지이며 **카카오**와 **해피파킹 아이디** 로그인을 모두 지원합니다. 평소처럼
-로그인한 다음, 로그인 토큰을 홈어시스턴트에 붙여넣습니다.
-
-> F12 → **Application** → **Local Storage** → `https://app.hparking.co.kr` →
-> `token` 값을 복사
-
-이 토큰은 서명된 값으로, 우리 아파트의 주차 서버 주소·앱 사용자 ID·사이트 코드를
-이미 담고 있습니다. 그래서 그 밖에 입력할 것이 없습니다. 사이트 코드는 별도의
-식별자이며 서버의 서브도메인이 **아닙니다**. 그래서 추측하지 않고 반드시 로그인
-정보에서만 읽어옵니다.
-
-토큰을 직접 복사해야 하는 이유는, 해피파킹 로그인이 항상 해피파킹 자체 사이트로만
-돌아가고 사용자의 홈어시스턴트로는 절대 돌아오지 않기 때문입니다.
-
-브라우저를 쓰기 어렵다면 입력란을 비운 채로 제출하세요. **해피파킹 아이디와 비밀번호**로
-직접 로그인하거나, **서버 정보**를 직접 입력하는 두 가지 방법이 나타납니다.
-
-설정을 마친 뒤 통합구성요소의 **구성**에서 다음 항목을 조정할 수 있습니다.
-
-| 옵션 | 의미 |
-|------|------|
-| 이 브리지의 기기 ID | 이 브리지만의 고유한 기기 ID (기본값 `hass-happyparking`) |
-| 폴링 주기(초, 0 = 푸시만 사용) | 기본값 `120`. 푸시가 확실히 동작할 때만 `0`으로 두세요 |
-| 서버 TLS 인증서 검증 | 자체 서명 인증서를 쓰는 서버일 때만 해제 |
-| 푸시 토큰 등록 | **베타.** 단지에 따라 동작하지 않을 수 있습니다. 해제하면 주차 서버의 푸시 목록에 등록하지 않습니다. 어느 쪽이든 폴링이 모든 이벤트를 전달합니다 |
-| 차량 입·출차 시 알림 표시 | 기본 켜짐. 해제하면 알림 없이 이벤트만 발생합니다 |
-| 방문 차량도 함께 확인 | 기본 켜짐. 방문 차량을 별도의 엔티티와 이벤트로 다룹니다 |
-
-알림을 꺼도 이벤트는 그대로 발생합니다. 이벤트 엔티티와 버스 이벤트는 어느 쪽이든
-계속 동작하므로 이를 이용한 자동화(예: 귀가 시 현관 조명 켜기)는 알림함만 조용해질 뿐
-그대로 작동합니다.
-
-## 로그북에서 보기
-
-차량의 입·출차는 **차량 번호**와 함께 로그북에 기록됩니다.
-
-> **HappyParking** 00가0000 entered at Main gate
-> **HappyParking visitor** 00가0000 entered at Main gate
-
-이벤트 엔티티의 상태값은 이벤트 종류(`entered` 등)뿐이라, 엔티티가 스스로 남기는
-줄에는 **어느 차량인지**라는 가장 중요한 정보가 빠집니다. 그래서 차량 번호가 들어
-있는 버스 이벤트를 따로 설명(describe)하여 기록합니다.
-
-이렇게 기록된 줄은 이벤트 엔티티를 함께 지정하므로, 메인 **로그북**과 해당 엔티티
-대화상자의 **활동(Activity)** 목록 양쪽에 모두 나타납니다. 바로 이 점 때문에 여기에는
-`logbook: exclude:` 설정을 안내하지 않습니다. 엔티티를 제외하면 차량 번호가 담긴 줄까지
-함께 사라져서, 로그북이 정리되는 것이 아니라 오히려 더 비어버립니다.
-
-기본 `entered` / `exited` 줄은 그 옆에 그대로 남습니다. 이 줄을 없애고 차량 번호가
-담긴 줄만 남기려면 해당 엔티티를 recorder에서 제외하면 됩니다. 다만 엔티티의 기록
-그래프를 잃게 됩니다.
+**로그북 깔끔하게 보기.** 차마다 차량 번호 없는 "entered"·"exited" 줄이 하나 더
+남습니다. 차량 번호가 있는 줄만 남기려면 `configuration.yaml`에 다음을 추가하세요.
+트리거와 자동화는 그대로 동작합니다.
 
 ```yaml
 recorder:
@@ -124,60 +99,33 @@ recorder:
       - event.happyparking_visitor_in_out
 ```
 
-## 자동화 예시
+<details>
+<summary><b>고급 사용자용</b></summary>
 
-기본 제공 알림으로 대부분의 경우는 충분합니다. 문구를 직접 정하거나 다른 방식으로
-받고 싶을 때(휴대폰 푸시, TTS, 조명 등) 버스 이벤트를 사용하세요.
+- **버스 이벤트.** 차가 드나들 때마다 `happyparking_car` 또는
+  `happyparking_visitor` 이벤트가 발생합니다. `state`(`entered` 또는 `exited`),
+  `car_no`, `entry_gate`, `entry_time`, `exit_gate`, `exit_time`(출차 전에는
+  `null`), `kind`(`household` 또는 `visitor`), `source`(`push` 또는 `poll`),
+  `device_id`가 담깁니다. 기기 트리거에서도 같은 값을 `trigger.event.data`로 받을
+  수 있습니다.
+- **이벤트 엔티티.** `event.happyparking_car_in_out`,
+  `event.happyparking_visitor_in_out`.
+- **푸시 테스트.** `happyparking.test_push` 액션을 실행하면 주차 서버가 테스트
+  푸시를 보냅니다. 도착하면 개발자 도구 → 이벤트에 `happyparking_push`가
+  나타납니다.
+- **기타 옵션.** *이 브리지의 기기 ID*와 *서버 TLS 인증서 검증*은 거의 바꿀 일이
+  없습니다. 확인 주기를 `0`으로 두면 푸시만 사용합니다.
+- **브라우저 없이.** 로그인 칸을 비운 채 제출하면 서버 정보를 직접 입력할 수도
+  있습니다.
 
-```yaml
-alias: HappyParking car in/out notification
-triggers:
-  - trigger: event
-    event_type: happyparking_car
-  - trigger: event
-    event_type: happyparking_visitor
-actions:
-  - action: notify.notify
-    data:
-      title: "🚗 HappyParking"
-      message: >-
-        {{ '방문차량 ' if trigger.event.data.kind == 'visitor' else '' }}
-        {{ trigger.event.data.car_no }}
-        {{ '들어왔어요 (entered)' if trigger.event.data.state == 'entered'
-           else '나갔어요 (exited)' }}
-        - {{ trigger.event.data.entry_gate
-              if trigger.event.data.state == 'entered'
-              else trigger.event.data.exit_gate }}
-```
+</details>
 
-이런 자동화를 쓴다면 알림이 두 번 오지 않도록 **차량 입·출차 시 알림 표시** 옵션을
-꺼두세요.
+## 그 밖에
 
-## 푸시에 대하여 (베타)
+변경 내역은 [CHANGELOG](CHANGELOG.md)에 있습니다. 이슈와 풀 리퀘스트를 환영합니다.
 
-푸시는 **베타이며, 단지에 따라 아예 동작하지 않을 수 있습니다.** 주차 서버가 휴대폰이
-아닌 토큰으로도 푸시를 보내주는지가 단지마다 다르고, 조용히 실패한 상태는 그냥 차가
-안 다니는 것과 구분되지 않습니다. 그래서 폴링이 항상 함께 돌아갑니다. 푸시가
-동작하지 않아도 이벤트를 놓치지 않으며, 다만 폴링 주기만큼 늦게 도착할 뿐입니다.
-
-푸시가 실제로 오고 있는지 확인하는 방법은 두 가지입니다.
-
-- 모든 차량 이벤트에는 `source: push` 또는 `source: poll`이 들어 있습니다. 폴링
-  주기만큼 지연된 `poll` 이벤트만 온다면 푸시가 도착하지 않는 것입니다.
-- **`happyparking.test_push`** 서비스를 호출하세요. 주차 서버가 홈어시스턴트 자신의
-  토큰으로 푸시를 보내도록 요청합니다. 도착하면 버스에 **`happyparking_push`**
-  이벤트가 나타납니다(개발자 도구 → 이벤트에서 확인).
-
-푸시가 동작하지 않는다면 **푸시 토큰 등록**을 꺼두세요. 주차 서버의 푸시 목록에
-남지 않게 되며, 폴링만으로 계속 정상 동작합니다.
-
-## 참고
-
-- 푸시 토큰 등록은 주차 서버의 목록에 한 줄을 추가하며, 이 목록은 휴대폰 앱과
-  공유됩니다. 여기에 남고 싶지 않다면 해당 옵션을 끄면 됩니다.
-- `폴링 주기`를 `0`으로 두면 푸시 전용이 됩니다. 푸시가 베타인 점을 감안하면,
-  푸시가 확실히 동작하는 것을 확인한 뒤에만 사용하세요. 푸시를 끈 상태에서 `0`을
-  넣으면 이벤트를 전혀 받지 못하므로, 이 경우 폴링 주기는 기본값으로 되돌아갑니다.
+> 아래에 같은 내용이 영어로 이어집니다.
+> The same guide in English follows below.
 
 ---
 
@@ -185,123 +133,94 @@ actions:
 
 [한국어](#해피파킹-for-home-assistant) · **English**
 
-A custom [Home Assistant](https://www.home-assistant.io/) integration that
-notifies you the moment one of your registered **household** cars or **visitor**
-cars enters or leaves your apartment parking lot, using the HappyParking (해피파킹)
-system by BN Industry (비엔인더스트리, `com.bnids.happyparking`).
+Know the moment your car, or a visitor, enters or leaves your apartment's
+parking lot, and let Home Assistant act on it. For apartments that use the
+HappyParking (해피파킹) app.
 
-There is no official public API, so this talks to your building's own parking
-server the same way the phone app does. You sign in during setup and everything
-else is discovered from that login. Nothing is hard-coded.
+*Unofficial. Not made or supported by HappyParking or BN Industry.*
 
-## How it works
+## What you get
 
-Two engines, de-duplicated (no double alerts):
+- **A notification** for each car coming or going, with the plate and the gate.
+- **Automation triggers**: *Car entered*, *Car exited*, *Visitor entered*,
+  *Visitor exited*, optionally for particular plates only. Turn the lights on
+  when you get home, warm the bed when your partner arrives, and so on.
+- **A logbook** that names each car: *12가3456 entered at Main gate*.
+- **Instant alerts**, the same push the phone app gets, with a regular check in
+  the background so nothing is missed.
 
-1. **Poll** (default every 120 s) reads the in/out list directly. This is the
-   engine that always works.
-2. **FCM push (beta)** registers a push token with the parking server and
-   receives the same real-time push the phone app gets. Instant when it arrives,
-   but **it may not work at your site at all**. See "About push" below.
+## Install
 
-The visit list is ordered by *entry* time and an exit is written back onto the
-original row, so a car left parked while another comes and goes sinks down the
-list. Each sweep therefore keeps paging until every visit still awaiting an exit
-has been seen, rather than trusting the first page.
+1. [![Open in Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=dlxmax&repository=happyparking-homeassistant&category=integration)
 
-## Household and visitor cars
+   The button opens HappyParking in your Home Assistant **Marketplace**.
+   Install it, then restart Home Assistant.
+2. [![Add integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=happyparking)
 
-The two lists have the same shape on the server and differ only by path, but
-Home Assistant keeps them **completely separate**, because a guest arriving is
-not the same event as one of your own cars coming home.
+   Use this button to add the integration.
 
-| | Household | Visitor |
+If the buttons don't work, add this repository
+(`https://github.com/dlxmax/happyparking-homeassistant`) to the Marketplace by
+hand as a custom repository of type **Integration**.
+
+## Sign in
+
+Setup shows a link to HappyParking's own login page.
+
+1. Open it in Chrome or Edge on a computer and sign in as you always do, with
+   Kakao or your HappyParking id.
+2. Press **F12**, open **Application** → **Local Storage** →
+   `https://app.hparking.co.kr`, and copy the value of **`token`**.
+3. Paste it into Home Assistant. Your building and account are read from it,
+   so there is nothing else to fill in.
+
+No computer to hand? Leave the box empty and submit to sign in with a
+HappyParking id and password instead.
+
+If you signed in with Kakao by pasting the token, Home Assistant later asks
+once, on a **Re-authenticate** card, for your Kakao id. It needs that to keep
+push alerts running, and the card shows where to find it.
+
+## Automations
+
+In the automation editor choose **Device** → **HappyParking**, then a trigger.
+To react to one car only, type its plate in **Only these plates**: the whole
+plate (`12가3456`) or its last digits (`3456`). Separate several with commas.
+
+Example: when your car comes home after dark, turn on the hallway light.
+
+```yaml
+triggers:
+  - trigger: device
+    domain: happyparking
+    device_id: <your HappyParking device>
+    type: car_entered
+    plate: "3456"
+conditions:
+  - condition: sun
+    after: sunset
+actions:
+  - action: light.turn_on
+    target:
+      entity_id: light.hallway
+```
+
+## Settings
+
+Under **Configure** on the integration:
+
+| Setting | Default | What it does |
 |---|---|---|
-| Event entity | `event.happyparking_car_in_out` | `event.happyparking_visitor_in_out` |
-| Bus event | `happyparking_car` | `happyparking_visitor` |
-| Logbook name | **HappyParking** | **HappyParking visitor** |
-| Notification title | HappyParking | HappyParking visitor |
+| Show a notification for each car | On | Turn off if you send your own alerts. Triggers keep working. |
+| Also watch visitor cars | On | Turn off to follow household cars only. |
+| Receive instant push alerts | On | Turn off to rely on the regular check alone. |
+| Check interval while push is down | 120 s | How often to check when push is not connected. While it is, the check runs every 30 minutes. |
 
-Both events also carry a `kind` of `household` or `visitor`, so a single
-automation can listen to both and still tell them apart. Visitor watching can be
-switched off in **Configure**, which removes the visitor entity and event and
-halves the polling.
+## Tips
 
-Both events carry a `source` of `push` or `poll`, so you can see which engine
-delivered any given event. `exit_gate` and `exit_time` are `null` until the car
-actually leaves. The server seeds the exit time with the entry time, so it cannot
-be trusted on its own.
-
-## Install (HACS)
-
-1. HACS → **⋮** → **Custom repositories**.
-2. Add `https://github.com/dlxmax/happyparking-homeassistant`, category
-   **Integration**.
-3. Install **HappyParking**, then **restart Home Assistant**.
-4. Settings → Devices & Services → **Add Integration** → **HappyParking**, and
-   sign in (below).
-
-(Manual install: copy `custom_components/happyparking/` into your HA
-`config/custom_components/` folder and restart.)
-
-## Setup
-
-Adding the integration sends you to **HappyParking's own login page**
-(`app.hparking.co.kr/happyparking/login`), the same one the app uses, with both
-**Kakao** and **HappyParking id** sign-in. Sign in there as you normally would,
-then copy your login token back into Home Assistant:
-
-> F12 → **Application** → **Local Storage** → `https://app.hparking.co.kr` → copy
-> the value of `token`.
-
-That token is a signed blob that already contains your building's parking server
-address, your app user id and your site code, so nothing else has to be typed in.
-The site code is its own identifier, not the server's subdomain, so it is only
-ever read from the login, never guessed.
-
-The token has to be copied by hand because HappyParking's login only ever returns
-to HappyParking's own site, never to your Home Assistant.
-
-If you would rather not use a browser, submit the box empty and you get two
-alternatives: signing in with a **HappyParking id and password** directly, or
-entering the **server details** yourself.
-
-Afterwards, **Configure** on the integration exposes:
-
-| option | meaning |
-|--------|---------|
-| Device ID for this bridge | a device id unique to this bridge (default `hass-happyparking`) |
-| Poll fallback seconds | default `120`; use `0` only if push is proven to work |
-| Verify the server's TLS certificate | turn off only if your server uses a self-signed cert |
-| Register a push token | **beta**, may not work at your site. Uncheck to stay out of the parking server's push table; polling delivers every event either way |
-| Show a notification for each car entering or leaving | on by default; uncheck for events without the notifications |
-| Also watch visitor cars | on by default; visitors get their own entity and event |
-
-Turning the notifications off does not cost you the events. The event entities
-and the bus events fire either way, so automations built on them (lighting the
-hallway on arrival, say) keep working with a silent notification drawer.
-
-## In the logbook
-
-A car movement is written to the logbook by plate:
-
-> **HappyParking** 00가0000 entered at Main gate
-> **HappyParking visitor** 00가0000 entered at Main gate
-
-An event entity's own state is only ever the event type, so its row can say no
-more than `entered`. Which car it was, the one thing worth recording, is
-missing. The movement is therefore described from the bus event, where the plate
-is.
-
-The described row names the event entity, so it shows up both in the main
-Logbook and in the **Activity** list of the entity's own dialog. That naming is
-also why there is no `logbook: exclude:` recipe here: excluding the entity would
-take the described row down with the bare one, leaving the logbook emptier than
-before rather than tidier.
-
-The bare `entered` / `exited` row is still written alongside it. To drop it and
-leave only the row with the plate, keep the entities out of the recorder, at the
-cost of their history graphs:
+**A cleaner logbook.** Each car also leaves a bare "entered" or "exited" row.
+To keep only the rows with the plate, add this to `configuration.yaml`.
+Triggers and automations keep working.
 
 ```yaml
 recorder:
@@ -311,57 +230,27 @@ recorder:
       - event.happyparking_visitor_in_out
 ```
 
-## Example automation
+<details>
+<summary><b>For advanced users</b></summary>
 
-The built-in notification covers the common case. Use the bus events when you
-want your own wording or your own delivery (phone push, TTS, lights):
+- **Bus events.** Every movement fires `happyparking_car` or
+  `happyparking_visitor`, with `state` (`entered` or `exited`), `car_no`,
+  `entry_gate`, `entry_time`, `exit_gate`, `exit_time` (both `null` until the
+  car leaves), `kind` (`household` or `visitor`), `source` (`push` or `poll`)
+  and `device_id`. Device triggers pass the same data as `trigger.event.data`.
+- **Event entities.** `event.happyparking_car_in_out` and
+  `event.happyparking_visitor_in_out`.
+- **Testing push.** The `happyparking.test_push` action asks the parking server
+  to send a test push. When it arrives, a `happyparking_push` event appears in
+  Developer tools → Events.
+- **Other options.** *Device ID for this bridge* and *Verify the server's TLS
+  certificate* rarely need changing. A check interval of `0` means push only.
+- **Without a browser.** Submitting the sign-in box empty also offers entering
+  the server details by hand.
 
-```yaml
-alias: HappyParking car in/out notification
-triggers:
-  - trigger: event
-    event_type: happyparking_car
-  - trigger: event
-    event_type: happyparking_visitor
-actions:
-  - action: notify.notify
-    data:
-      title: "🚗 HappyParking"
-      message: >-
-        {{ 'Visitor ' if trigger.event.data.kind == 'visitor' else '' }}
-        {{ trigger.event.data.car_no }}
-        {{ 'entered' if trigger.event.data.state == 'entered' else 'exited' }}
-        - {{ trigger.event.data.entry_gate
-              if trigger.event.data.state == 'entered'
-              else trigger.event.data.exit_gate }}
-```
+</details>
 
-If you use an automation like this, turn **Show a notification for each car**
-off so you do not get both.
+## More
 
-## About push (beta)
-
-Push is **beta and may not work at your site at all.** Whether a parking server
-routes to a token that is not a phone varies from site to site, and a silent
-failure looks exactly like a quiet car park. That is why polling always runs
-alongside it: if push never arrives you still miss nothing, events just show up
-a poll interval later.
-
-Two ways to tell whether push is actually arriving:
-
-- Any car event carries `source: push` or `source: poll`. A `poll` source with a
-  lag close to your scan interval means push is not arriving.
-- Call the **`happyparking.test_push`** service. The parking server is asked to
-  push to Home Assistant's own token; if it arrives, a **`happyparking_push`**
-  event appears on the bus (watch Developer Tools → Events).
-
-If push does not work for you, turn **Register a push token** off. You stay out
-of the parking server's push table and lose nothing but the latency.
-
-## Notes
-
-- Registering a push token writes a row into the parking server's table, which is
-  shared with the phone app. Turn the option off to stay out of it entirely.
-- Setting the poll interval to `0` makes the integration push-only. Given push is
-  beta, do that only once you have confirmed push works. With push disabled a `0`
-  interval would mean no events at all, so the interval reverts to its default.
+Changes are listed in the [changelog](CHANGELOG.md). Issues and pull requests
+are welcome.

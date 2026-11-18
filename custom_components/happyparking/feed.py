@@ -30,9 +30,6 @@ class Feed:
         # Emitting then would replay old events as fresh notifications. Each
         # list primes on its own: one of them failing must not silence the other.
         self.primed = False
-        # Set by the feed's event entity once it exists, so the bus event can
-        # name it and the described logbook row reaches that entity's Activity.
-        self.logbook_entity_id: str | None = None
         self.listeners: set[Callable[[str, dict], None]] = set()
 
     def add_listener(self, cb: Callable[[str, dict], None]) -> Callable[[], None]:

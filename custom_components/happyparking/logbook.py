@@ -10,7 +10,6 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from homeassistant.components.logbook import (
-    LOGBOOK_ENTRY_ENTITY_ID,
     LOGBOOK_ENTRY_ICON,
     LOGBOOK_ENTRY_MESSAGE,
     LOGBOOK_ENTRY_NAME,
@@ -46,14 +45,11 @@ def async_describe_events(
             message = f"{car_description(data)} {state}"
             if gate:
                 message = f"{message} at {gate}"
-            entry = {
+            return {
                 LOGBOOK_ENTRY_NAME: name,
                 LOGBOOK_ENTRY_MESSAGE: message,
                 LOGBOOK_ENTRY_ICON: ICONS.get(state, "mdi:car"),
             }
-            if entity_id := data.get("entity_id"):
-                entry[LOGBOOK_ENTRY_ENTITY_ID] = entity_id
-            return entry
 
         return async_describe_car_event
 

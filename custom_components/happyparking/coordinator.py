@@ -4,12 +4,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 
 import aiohttp
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 
 from .const import (
     CONF_BASE_URL,
@@ -21,6 +23,7 @@ from .const import (
     CONF_ENABLE_PUSH,
     CONF_ENABLE_NOTIFY,
     CONF_ENABLE_VISITORS,
+    CREDENTIAL_KEYS,
     DEFAULT_DEVICE_ID,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_VERIFY_SSL,
@@ -39,7 +42,30 @@ from .const import (
     POLL_PAGE_SIZE,
 )
 from .describe import car_description
+from .discovery import DiscoveryError, cloud_token_for, decode_token, local_token
 from .feed import Feed
+
+
+SAFETY_POLL_SECONDS = 1800  # poll interval while push is connected
+POLL_TICK_SECONDS = 30
+WATCHDOG_SECONDS = 60
+WATCHDOG_DOWN_CHECKS = 5  # minutes a reconnect may take before a rebuild
+
+
+def _header_param(header: str, name: str) -> str:
+    """Pull one base64url value out of a Web Push header, padded.
+
+    Takes `dh=...`, `p256ecdsa=...;dh=...`, a bare value, or the library's own
+    `[3:]`-stripped leftovers, and returns the value with its `=` padding.
+    """
+    value = header
+    for part in header.replace(",", ";").split(";"):
+        part = part.strip()
+        if part.startswith(f"{name}="):
+            value = part[len(name) + 1 :]
+            break
+    value = value.strip().rstrip("=")
+    return value + "=" * (-len(value) % 4)
 
 
 class FetchError(Exception):
@@ -80,8 +106,16 @@ class HappyParkingCoordinator:
             self.feeds.append(Feed(KIND_VISITOR, EVENT_VISITOR, "HappyParking visitor"))
         self._tasks: list[asyncio.Task] = []
         self._fcm = None
+        # True only while the FCM listener is actually connected; polling slows
+        # down to a safety sweep then, and speeds back up when it is not.
+        self.push_healthy = False
         self._push_token: str | None = None
         self._session: aiohttp.ClientSession | None = None
+        self._credentials = {k: data[k] for k in CREDENTIAL_KEYS if data.get(k)}
+        self._local_token: str | None = None
+        self._local_expiry = 0.0
+        self._auth_lock = asyncio.Lock()
+        self._reauth_requested = False
 
     # -- http ----------------------------------------------------------------
     async def _get_json(self, url: str) -> dict | list:
@@ -105,6 +139,64 @@ class HappyParkingCoordinator:
             return ((body.get("data") or {}).get("contents")) or []
         return []
 
+    # -- parking server login -------------------------------------------------
+    def _request_reauth(self, why: str) -> None:
+        """Ask the user, once per run, for a credential the bridge can renew with."""
+        if self._reauth_requested:
+            return
+        self._reauth_requested = True
+        LOGGER.warning("push needs a HappyParking sign-in: %s", why)
+        self.entry.async_start_reauth(self.hass)
+
+    async def _bearer(self, force: bool = False) -> str | None:
+        """The parking server's 24-hour login, renewed before it runs out."""
+        if not self._credentials:
+            self._request_reauth("no saved sign-in to renew the login with")
+            return None
+        async with self._auth_lock:
+            if not force and self._local_token and time.time() < self._local_expiry:
+                return self._local_token
+            assert self._session is not None
+            try:
+                cloud = await cloud_token_for(self._session, self._credentials)
+                owner = decode_token(cloud).get("userId")
+                if owner is not None and int(owner) != self.user_id:
+                    self._request_reauth("the saved sign-in belongs to another account")
+                    return None
+                token = await local_token(
+                    self._session, self.base, cloud, self._credentials, self.verify_ssl
+                )
+            except DiscoveryError as err:
+                LOGGER.warning("could not sign in to the parking server: %s", err.key)
+                if err.key in ("login_failed", "kakao_not_registered", "no_credentials"):
+                    self._request_reauth(err.key)
+                return None
+            self._local_token = token
+            try:
+                exp = float(decode_token(token).get("exp") or 0)
+            except (DiscoveryError, TypeError, ValueError):
+                exp = 0
+            # Renew a few minutes early; without an expiry claim, assume the
+            # app's 24 hours and renew well inside it.
+            self._local_expiry = exp - 300 if exp else time.time() + 20 * 3600
+            LOGGER.info("signed in to the parking server")
+            return token
+
+    async def _authed(self, method: str, url: str, **kwargs) -> tuple[int, str]:
+        """Send a request with the parking server login, renewing it once on 401."""
+        assert self._session is not None
+        status, text = 0, ""
+        for attempt in range(2):
+            token = await self._bearer(force=attempt > 0)
+            headers = {"Authorization": f"Bearer {token}"} if token else {}
+            async with self._session.request(
+                method, url, headers=headers, ssl=self.verify_ssl, **kwargs
+            ) as resp:
+                status, text = resp.status, await resp.text()
+            if status != 401 or token is None:
+                break
+        return status, text
+
     # -- push ----------------------------------------------------------------
     async def _register_push(self, token: str) -> None:
         """Register our FCM token, then read back what the server actually stored."""
@@ -127,28 +219,30 @@ class HappyParkingCoordinator:
             "pushToken": wrapped,
         }
         try:
-            async with self._session.put(
-                f"{self.base}/noti2/push", json=body, ssl=self.verify_ssl
-            ) as resp:
-                text = (await resp.text())[:300]
+            status, text = await self._authed(
+                "PUT", f"{self.base}/noti2/push", json=body
+            )
             LOGGER.info(
                 "push registration: device=%s status=%s response=%s",
                 self.device_id,
-                resp.status,
-                text,
+                status,
+                text[:300],
             )
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             LOGGER.warning("push registration failed: %s", err)
             return
-        await self._log_registration()
+        if status == 200:
+            await self._log_registration()
 
     async def _log_registration(self) -> None:
         """Report the registration back as the server holds it."""
+        url = f"{self.base}/noti2/push?deviceId={self.device_id}"
         try:
-            rows = await self._get_json(
-                f"{self.base}/noti2/push?deviceId={self.device_id}"
-            )
-        except FetchError as err:
+            status, text = await self._authed("GET", url)
+            if status != 200:
+                raise FetchError(f"GET {url} -> {status}")
+            rows = json.loads(text)
+        except (FetchError, ValueError, aiohttp.ClientError, asyncio.TimeoutError) as err:
             LOGGER.warning("could not read back push registration: %s", err)
             return
         for row in rows if isinstance(rows, list) else [rows]:
@@ -166,14 +260,13 @@ class HappyParkingCoordinator:
         """Ask the parking server to push to our own token, to prove delivery."""
         if not self._push_token:
             raise FetchError("no push token registered yet")
-        assert self._session is not None
         payload = {"body": f"{message} 알림 테스트", "pushToken": self._push_token}
-        async with self._session.post(
-            f"{self.base}/noti2/0", json=payload, ssl=self.verify_ssl
-        ) as resp:
-            text = (await resp.text())[:300]
-        LOGGER.info("test push requested: status=%s response=%s", resp.status, text)
-        return text
+        status, text = await self._authed("POST", f"{self.base}/noti2/0", json=payload)
+        LOGGER.info("test push requested: status=%s response=%s", status, text[:300])
+        if status != 200:
+            # Reporting success on a refusal is how this went unnoticed before.
+            raise FetchError(f"the parking server answered {status}")
+        return text[:300]
 
     # -- event model ---------------------------------------------------------
     @staticmethod
@@ -218,6 +311,19 @@ class HappyParkingCoordinator:
                     feed.open.pop(vid, None)
 
     @callback
+    def _device_id(self) -> str | None:
+        registry = dr.async_get(self.hass)
+        identifier = (DOMAIN, self.entry.entry_id)
+        # Newer HA scopes the lookup to the entry and deprecates the old call.
+        if hasattr(registry, "async_get_device_by_identifier"):
+            device = registry.async_get_device_by_identifier(
+                identifier, self.entry.entry_id
+            )
+        else:
+            device = registry.async_get_device(identifiers={identifier})
+        return device.id if device else None
+
+    @callback
     def _dispatch(self, feed: Feed, state: str, data: dict, source: str) -> None:
         LOGGER.info(
             "%s car %s %s (via %s)", feed.kind, data.get("car_no"), state, source
@@ -231,8 +337,13 @@ class HappyParkingCoordinator:
             "kind": feed.kind,
             **data,
         }
-        if feed.logbook_entity_id:
-            payload["entity_id"] = feed.logbook_entity_id
+        # Deliberately no entity_id. Naming the event entity here would tie the
+        # described logbook row to it, and then a recorder exclude could not drop
+        # the entity's bare "entered" row without taking the row with the plate
+        # down too. The device is named instead, which puts the plate row on the
+        # device page; the recorder does not filter events by device.
+        if device_id := self._device_id():
+            payload["device_id"] = device_id
         self.hass.bus.async_fire(feed.event_type, payload)
         for cb in list(feed.listeners):
             cb(state, {"source": source, "kind": feed.kind, **data})
@@ -372,9 +483,19 @@ class HappyParkingCoordinator:
     async def _run_poll(self) -> None:
         if self.scan_interval <= 0:
             return
+        last = time.monotonic()
         while True:
-            await asyncio.sleep(self.scan_interval)
-            await self._sweep_all("poll")
+            await asyncio.sleep(POLL_TICK_SECONDS)
+            # The configured interval applies while push is down; while it is
+            # up, a slow sweep is enough to catch anything a push missed.
+            interval = (
+                max(self.scan_interval, SAFETY_POLL_SECONDS)
+                if self.push_healthy
+                else self.scan_interval
+            )
+            if time.monotonic() - last >= interval:
+                last = time.monotonic()
+                await self._sweep_all("poll")
 
     async def _run_push(self) -> None:
         try:
@@ -400,24 +521,118 @@ class HappyParkingCoordinator:
         def creds_updated(new_creds):
             self.hass.async_add_executor_job(self._save_creds, new_creds)
 
-        self._fcm = FcmPushClient(
-            on_msg, cfg, creds, creds_updated,
-            config=FcmPushClientConfig(server_heartbeat_interval=20, client_heartbeat_interval=15),
-        )
-        try:
-            token = await self._fcm.checkin_or_register()
-            if creds is None:
-                await self.hass.async_add_executor_job(self._save_creds, self._fcm.credentials)
-            await self._register_push(token)
-            await self._fcm.start()
-            LOGGER.info("FCM listener started, waiting for pushes")
-            while True:
-                await asyncio.sleep(6 * 3600)
+        coordinator = self
+
+        class TolerantFcmPushClient(FcmPushClient):
+            """firebase-messaging 0.4.5 dies on one unreadable message.
+
+            It expects the dh and salt values padded and alone in their headers.
+            When one is not, the client shuts down, the message is never acked,
+            and Google hands it back on every reconnect, so no push ever gets
+            through again. Normalise the headers, and if a message still cannot
+            be read, log it, let it be acked, and treat it as a change notice.
+            """
+
+            def _app_data_by_key(self, p, key, do_not_raise=False):
+                value = super()._app_data_by_key(p, key, do_not_raise)
+                prefix = {"crypto-key": "dh", "encryption": "salt"}.get(key)
+                if prefix and value:
+                    value = f"{prefix}={_header_param(value, prefix)}"
+                return value
+
+            def _handle_data_message(self, msg):
+                try:
+                    super()._handle_data_message(msg)
+                except Exception as err:  # noqa: BLE001
+                    keys = sorted(x.key for x in msg.app_data)
+                    LOGGER.warning(
+                        "unreadable push id=%s (%s: %s); app_data keys=%s, raw %d bytes",
+                        msg.persistent_id, type(err).__name__, err, keys,
+                        len(msg.raw_data or b""),
+                    )
+                    coordinator.hass.loop.call_soon_threadsafe(
+                        coordinator._on_push, {"unreadable": keys}, msg.persistent_id
+                    )
+
+        def new_client():
+            return TolerantFcmPushClient(
+                on_msg, cfg, creds, creds_updated,
+                config=FcmPushClientConfig(
+                    server_heartbeat_interval=20, client_heartbeat_interval=15
+                ),
+            )
+
+        backoff = WATCHDOG_SECONDS
+        token = None
+        while True:
+            try:
+                self._fcm = new_client()
+                token = await self._fcm.checkin_or_register()
+                if creds is None:
+                    creds = self._fcm.credentials
+                    await self.hass.async_add_executor_job(self._save_creds, creds)
                 await self._register_push(token)
-        except asyncio.CancelledError:
-            raise
-        except Exception as err:  # noqa: BLE001
-            LOGGER.exception("push engine error (poll still active): %s", err)
+                await self._fcm.start()
+                LOGGER.info("FCM listener started, waiting for pushes")
+                if await self._watch_fcm(token):
+                    # It worked for a while, so this is a fresh failure.
+                    backoff = WATCHDOG_SECONDS
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:  # noqa: BLE001
+                LOGGER.exception("push engine error (polling sped up): %s", err)
+            self.push_healthy = False
+            if self._fcm is not None:
+                try:
+                    await self._fcm.stop()
+                except Exception:  # noqa: BLE001
+                    pass
+            LOGGER.info("restarting the FCM listener in %ss", backoff)
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 3600)
+
+    async def _watch_fcm(self, token: str) -> bool:
+        """Return once the listener has been down for a while, so it can be rebuilt.
+
+        Returns whether it was ever connected in between.
+
+        The library can stop on its own (a decode error, giving up on
+        reconnecting) without telling anyone, so its state is checked rather
+        than trusted.
+        """
+        down_checks = 0
+        since_register = 0.0
+        was_healthy = False
+        while True:
+            await asyncio.sleep(WATCHDOG_SECONDS)
+            since_register += WATCHDOG_SECONDS
+            if since_register >= 6 * 3600:
+                since_register = 0.0
+                await self._register_push(token)
+            fcm = self._fcm
+            tasks = getattr(fcm, "tasks", None) or []
+            listening = bool(fcm and fcm.do_listen and tasks and not tasks[0].done())
+            if listening and fcm.is_started():
+                if not self.push_healthy:
+                    LOGGER.info(
+                        "push listener connected; polling only every %ss as a safety net",
+                        max(self.scan_interval, SAFETY_POLL_SECONDS),
+                    )
+                self.push_healthy = was_healthy = True
+                down_checks = 0
+                continue
+            down_checks += 1
+            if self.push_healthy:
+                LOGGER.warning(
+                    "push listener is not connected (state %s); polling every %ss until it is",
+                    getattr(fcm, "run_state", None), self.scan_interval,
+                )
+            self.push_healthy = False
+            # A dead listen task never comes back; a reconnect in progress
+            # gets a few minutes first.
+            if not listening or down_checks >= WATCHDOG_DOWN_CHECKS:
+                LOGGER.warning("push listener stopped; rebuilding it")
+                return was_healthy
 
     @callback
     def _on_push(self, notification, persistent_id) -> None:

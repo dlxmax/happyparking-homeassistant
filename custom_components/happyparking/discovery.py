@@ -18,6 +18,9 @@ import aiohttp
 from .const import (
     CLOUD_URL,
     CONF_BASE_URL,
+    CONF_KAKAO_ID,
+    CONF_LOGIN_ID,
+    CONF_PASSWORD,
     CONF_SITE_CODE,
     CONF_USER_ID,
     LOGGER,
@@ -162,6 +165,64 @@ async def token_for_password(
     if not token:
         raise DiscoveryError("login_failed")
     return str(token)
+
+
+async def cloud_token_for(
+    session: aiohttp.ClientSession, credentials: dict[str, Any]
+) -> str:
+    """Sign in to the cloud again with whatever renewal credential was kept."""
+    if kakao_id := credentials.get(CONF_KAKAO_ID):
+        return await token_for_kakao_id(session, str(kakao_id))
+    if (login_id := credentials.get(CONF_LOGIN_ID)) and credentials.get(CONF_PASSWORD):
+        return await token_for_password(
+            session, str(login_id), str(credentials[CONF_PASSWORD])
+        )
+    raise DiscoveryError("no_credentials")
+
+
+def _unwrap_token(body: dict[str, Any]) -> str | None:
+    data = body.get("data")
+    if isinstance(data, dict) and data.get("token"):
+        return str(data["token"])
+    if body.get("token"):
+        return str(body["token"])
+    return None
+
+
+async def local_token(
+    session: aiohttp.ClientSession,
+    base_url: str,
+    cloud_token: str,
+    credentials: dict[str, Any],
+    verify_ssl: bool = True,
+) -> str:
+    """Trade a cloud login for the parking server's own 24-hour login.
+
+    Mirrors the app: the cloud token's payload carries the key the parking
+    server checks, and the login id is the Kakao id or the HappyParking id.
+    """
+    payload = decode_token(cloud_token)
+    key = payload.get("secureKey") or payload.get("tokenKey") or payload.get("securityKey")
+    user_id = payload.get("userId")
+    if not key or user_id is None:
+        raise DiscoveryError("invalid_token")
+    login_id = (
+        credentials.get(CONF_KAKAO_ID)
+        or credentials.get(CONF_LOGIN_ID)
+        or payload.get("loginId")
+        or ""
+    )
+    body = await _cloud_json(
+        session,
+        "POST",
+        f"{base_url}/local/api/login/cloud",
+        json={"userId": user_id, "loginId": str(login_id), "tokenKey": key},
+        ssl=verify_ssl,
+    )
+    token = _unwrap_token(body)
+    if not token:
+        raise DiscoveryError("login_failed")
+    return token
 
 
 def config_from_token(token: str) -> dict[str, Any]:
