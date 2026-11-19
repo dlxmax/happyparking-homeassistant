@@ -50,6 +50,11 @@ POLL_TICK_SECONDS = 30
 WATCHDOG_SECONDS = 60
 WATCHDOG_DOWN_CHECKS = 5  # minutes a reconnect may take before a rebuild
 
+# Every push type the app knows. The server pushes a car's in/out only to
+# accounts in its share group whose own subscription includes the matching
+# type, so to receive all of them this account keeps every type on.
+ALL_PUSH_TYPES = ("RESIDENT", "VISITOR", "UNKNOWN", "KIOSK", "HOMENET")
+
 
 def _header_param(header: str, name: str) -> str:
     """Pull one base64url value out of a Web Push header, padded.
@@ -232,6 +237,7 @@ class HappyParkingCoordinator:
             return
         if status == 200:
             await self._log_registration()
+            await self._sync_push_sharing()
 
     async def _log_registration(self) -> None:
         """Report the registration back as the server holds it."""
@@ -266,6 +272,119 @@ class HappyParkingCoordinator:
             # Reporting success on a refusal is how this went unnoticed before.
             raise FetchError(f"the parking server answered {status}")
         return text[:300]
+
+    # -- push sharing --------------------------------------------------------
+    async def _authed_json(self, method: str, url: str, **kwargs) -> dict:
+        """Like _authed, but require 200 and return the parsed JSON body."""
+        status, text = await self._authed(method, url, **kwargs)
+        if status != 200:
+            raise FetchError(f"{method} {url} -> {status}")
+        return json.loads(text) if text.strip() else {}
+
+    async def _sync_push_sharing(self) -> None:
+        """Make every car at our unit, and visitor alerts, push to this account.
+
+        The app pushes a car's in/out only to the account that registered it,
+        so a second household car - a partner's, say - reaches Home Assistant
+        only through the poll, up to a poll interval late. We join each car's
+        alert-share group and keep this account subscribed to every push type,
+        so all of them arrive the instant they happen.
+
+        Scoped to our own unit: the server is only ever asked for the cars at
+        this account's own dong/ho. Every step is best-effort - any failure is
+        logged and skipped, because push and poll still deliver every event.
+        """
+        try:
+            dong, ho = await self._my_dong_ho()
+            cars = await self._household_cars(dong, ho)
+        except (FetchError, aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            LOGGER.warning("could not read the household car list to share pushes: %s", err)
+            return
+        for car in cars:
+            await self._join_share_group(car)
+        await self._ensure_push_types(cars)
+
+    async def _my_dong_ho(self) -> tuple[str, str]:
+        """This account's building/unit, which scopes the car list to our home."""
+        url = f"{self.base}/local/api/cloud/registcar/getDongHo/{self.user_id}"
+        data = (await self._authed_json("GET", url)).get("data") or {}
+        dong, ho = data.get("addressDong"), data.get("addressHo")
+        if not dong or not ho:
+            raise FetchError("the server returned no unit for this account")
+        return str(dong), str(ho)
+
+    async def _a_household_plate(self) -> str | None:
+        """Any registered household plate; getHomepage needs one to key on."""
+        for rec in await self._get_page(self.feeds[0], 1):
+            if rec.get("carNo"):
+                return str(rec["carNo"])
+        return None
+
+    async def _household_cars(self, dong: str, ho: str) -> list[dict]:
+        """Every registered car at this unit, each with its registCarId."""
+        plate = await self._a_household_plate()
+        if not plate:
+            raise FetchError("no household plate seen yet to query the car list")
+        from urllib.parse import quote  # noqa: PLC0415
+
+        url = (
+            f"{self.base}/local/api/cloud/registcar/getHomepage"
+            f"?addressDong={quote(dong)}&addressHo={quote(ho)}"
+            f"&carNo={quote(plate)}&appUserId={self.user_id}&parkingAllowTime=0"
+        )
+        body = await self._authed_json("GET", url)
+        return ((body.get("data") or {}).get("registerCarList")) or []
+
+    async def _join_share_group(self, car: dict) -> None:
+        """Add this account to one car's alert-share group, if not already in it."""
+        rcid = car.get("registCarId")
+        if not rcid:
+            return
+        base = f"{self.base}/local/api/share/registcar"
+        try:
+            body = await self._authed_json("GET", f"{base}/{rcid}")
+            members = [
+                m["appUserId"]
+                for m in (body.get("contents") or [])
+                if m.get("appUserId") is not None
+            ]
+            if self.user_id in members:
+                return
+            members.append(self.user_id)
+            status, text = await self._authed(
+                "PUT", base, json={"registCarId": rcid, "appUserIds": members}
+            )
+        except (FetchError, aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            LOGGER.warning("could not share pushes for registCarId=%s: %s", rcid, err)
+            return
+        if status == 200:
+            # Log the id, never the plate.
+            LOGGER.info("now sharing push alerts for registCarId=%s to this account", rcid)
+        else:
+            LOGGER.warning("could not share pushes for registCarId=%s: %s", rcid, text[:200])
+
+    async def _ensure_push_types(self, cars: list[dict]) -> None:
+        """Keep this account subscribed to every push type (visitor included)."""
+        mine = next((c for c in cars if c.get("appUserId") == self.user_id), None)
+        current = {
+            t for t in str((mine or {}).get("noticeSetup") or "").split(",") if t.strip()
+        }
+        if current.issuperset(ALL_PUSH_TYPES):
+            return
+        setup = ",".join(ALL_PUSH_TYPES)
+        try:
+            status, text = await self._authed(
+                "PUT",
+                f"{self.base}/local/api/registcar/noticeSetupUpdate",
+                json={"appUserId": self.user_id, "noticeSetup": setup},
+            )
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            LOGGER.warning("could not update push types: %s", err)
+            return
+        if status == 200:
+            LOGGER.info("enabled all push types (visitor included) for this account")
+        else:
+            LOGGER.warning("could not update push types: %s", text[:200])
 
     # -- event model ---------------------------------------------------------
     @staticmethod
