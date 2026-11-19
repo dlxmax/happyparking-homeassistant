@@ -3,6 +3,27 @@
 모든 항목은 한국어 다음에 영어가 이어집니다.
 Every entry appears in Korean first and in English afterwards.
 
+## v1.0.0
+
+### 한국어
+
+**변경**
+
+- **푸시가 기본 수단이 되었고, 주기적 확인은 예비 수단입니다.** 푸시가 연결되어
+  있는 동안에는 더 이상 서버를 주기적으로 조회하지 않습니다. 푸시가 끊기면 즉시 한 번
+  확인해 그 사이의 이벤트를 놓치지 않고, 푸시가 돌아올 때까지 **확인 주기**마다
+  확인합니다. 푸시를 끄면 이전처럼 계속 확인합니다.
+
+### English
+
+**Changed**
+
+- **Push is now the main path, and checking on a timer is the fallback.** While
+  the push listener is connected, the parking server is no longer polled. If push
+  drops, one check runs at once so nothing from the gap is missed, then checks
+  continue at the **Check interval** until push is back. With push switched off,
+  it keeps checking as before.
+
 ## v0.9.0
 
 ### 한국어

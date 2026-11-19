@@ -602,11 +602,18 @@ class HappyParkingCoordinator:
         if self.scan_interval <= 0:
             return
         last = time.monotonic()
+        was_healthy = False
         while True:
             await asyncio.sleep(POLL_TICK_SECONDS)
-            # Polls at the configured interval even while push is up: the
-            # server does not push every event.
-            if time.monotonic() - last >= self.scan_interval:
+            # Push reaches every household car now that their alerts are
+            # shared with this account, so polling is only the fallback: it
+            # stays quiet while the listener is connected, sweeps at once when
+            # it drops (to catch anything from the gap), then at the interval.
+            if self.push_healthy:
+                was_healthy = True
+                continue
+            if was_healthy or time.monotonic() - last >= self.scan_interval:
+                was_healthy = False
                 last = time.monotonic()
                 await self._sweep_all("poll")
 
